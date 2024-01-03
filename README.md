@@ -5,7 +5,7 @@ This is a new [**React Native**](https://reactnative.dev) project, bootstrapped 
 >**Note**: Make sure you have completed the [React Native - Environment Setup](https://reactnative.dev/docs/environment-setup) instructions till "Creating a new application" step, before proceeding.
 
 ## Screenshot
-![iOS ss](https://github.com/muhammad-kumail/App-Marker-clone/assets/56933027/8a13ccb9-0f65-4fc8-8ca0-e171fcffb817)
+![iOS ss-min](https://github.com/muhammad-kumail/App-Marker-clone/assets/56933027/835ea9db-acdf-43ff-b454-6de0011e975e)
 
 ## Step 1: Start the Metro Server
 
