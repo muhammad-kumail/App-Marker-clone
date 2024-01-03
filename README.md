@@ -1,8 +1,11 @@
 This is a new [**React Native**](https://reactnative.dev) project, bootstrapped using [`@react-native-community/cli`](https://github.com/react-native-community/cli).
 
-# Getting Started
+# App Marker clone
 
 >**Note**: Make sure you have completed the [React Native - Environment Setup](https://reactnative.dev/docs/environment-setup) instructions till "Creating a new application" step, before proceeding.
+
+## Screenshot
+![iOS ss](https://github.com/muhammad-kumail/App-Marker-clone/assets/56933027/8a13ccb9-0f65-4fc8-8ca0-e171fcffb817)
 
 ## Step 1: Start the Metro Server
 
