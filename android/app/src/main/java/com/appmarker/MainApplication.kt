@@ -1,4 +1,4 @@
-package com.appmarker
+package com.appshipe.appmarker
 
 import android.app.Application
 import com.facebook.react.PackageList

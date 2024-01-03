@@ -4,27 +4,33 @@ import theme, {scale} from '../../theme';
 import {Icon} from 'react-native-elements';
 import CustomText from '../CustomText';
 import {DrawerItem} from '..';
+import {useDispatch, useSelector} from 'react-redux';
+import {signOut} from '../../services/firebase/authentication';
+import {setToken} from '../../redux/reducer';
 
 export default function CustomDrawer({navigation}: any) {
   const [isSelect, setIsSelect] = useState<boolean>(false);
   const [isFolder1, setIsFolder1] = useState<boolean>(false);
   const [isFolder2, setIsFolder2] = useState<boolean>(false);
+  const dispatch = useDispatch();
+  const user = useSelector((state: any) => state.user);
   return (
     <ScrollView style={styles.container}>
       <DrawerItem
         icon={
           <Icon
-            name="alert-octagon"
-            type="material-community"
-            size={scale(20)}
+            name="person-circle"
+            type="ionicon"
+            size={scale(50)}
             color={theme.colors.white}
           />
         }
         style={{
           borderBottomWidth: 0,
         }}
-        title="Data backup"
-        description="last backup 4 days ago"
+        contentViewStyle={{flex: 3}}
+        title={user?.displayName}
+        description={user?.email}
         onPress={() => console.log('first')}
       />
       <View style={styles.titleView}>
@@ -169,6 +175,27 @@ export default function CustomDrawer({navigation}: any) {
         }
         title="Premium"
         onPress={() => console.log('first')}
+      />
+      <DrawerItem
+        icon={
+          <Icon
+            name="logout"
+            type="material-community"
+            size={scale(20)}
+            color={theme.colors.white}
+          />
+        }
+        title="Logout"
+        onPress={() => {
+          signOut()
+            .then(res => {
+              console.log('🚀 ~ file: index.tsx:190 ~ signOut ~ res:', res);
+            })
+            .catch(err => {
+              console.log('🚀 ~ file: index.tsx:192 ~ signOut ~ err:', err);
+            });
+          dispatch(setToken(null));
+        }}
       />
     </ScrollView>
   );

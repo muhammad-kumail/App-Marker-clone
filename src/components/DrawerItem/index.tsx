@@ -16,6 +16,7 @@ interface DrawerItemProps {
   title: string;
   description?: string;
   isSelected?: boolean;
+  contentViewStyle?: StyleProp<ViewStyle>;
   onPress?: () => void;
   style?: StyleProp<ViewStyle>;
 }
@@ -25,6 +26,7 @@ export default function DrawerItem({
   title,
   description,
   isSelected,
+  contentViewStyle,
   onPress,
   style,
 }: DrawerItemProps) {
@@ -33,7 +35,7 @@ export default function DrawerItem({
       <View
         style={[styles.container, style, isSelected && styles.selectedView]}>
         <View style={styles.iconView}>{icon}</View>
-        <View style={styles.textView}>
+        <View style={[styles.textView, contentViewStyle]}>
           <CustomText style={styles.title}>{title}</CustomText>
           {description && (
             <CustomText style={styles.subTitle}>{description}</CustomText>

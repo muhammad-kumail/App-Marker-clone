@@ -1,4 +1,4 @@
-package com.appmarker
+package com.appshipe.appmarker
 
 import com.facebook.react.ReactActivity
 import com.facebook.react.ReactActivityDelegate
