@@ -21,6 +21,7 @@ export const styles = StyleSheet.create({
     top: '50%',
     left: '50%',
     transform: [{translateX: -50}, {translateY: -75}],
+    zIndex: 1,
   },
   bars: {
     borderRightWidth: 1,
@@ -36,9 +37,10 @@ export const styles = StyleSheet.create({
   centerView: {
     flex: 1,
     justifyContent: 'center',
-    width: '100%',
+    width: '25%',
     paddingHorizontal: scale(10),
     gap: scale(10),
+    zIndex: 1,
   },
   lowerView: {
     // flexDirection: 'row',
@@ -47,6 +49,7 @@ export const styles = StyleSheet.create({
     alignItems: 'flex-end',
     justifyContent: 'flex-end',
     gap: scale(8),
+    zIndex: 1,
   },
   belowBtn: {
     backgroundColor: theme.colors.transparentBlack,

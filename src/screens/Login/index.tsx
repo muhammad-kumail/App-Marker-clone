@@ -1,5 +1,12 @@
-import {Alert, ImageBackground, Platform, ScrollView, View} from 'react-native';
-import React, {useState} from 'react';
+import {
+  Alert,
+  ImageBackground,
+  Platform,
+  ScrollView,
+  TextInput as RNTextInput,
+  View,
+} from 'react-native';
+import React, {useRef, useState} from 'react';
 import {styles} from './styles';
 import {images} from '../../utils/constants';
 import theme, {scale, verticalScale} from '../../theme';
@@ -24,6 +31,7 @@ export default function Login({navigation}: any) {
   const [email, setEmail] = useState<string>('');
   const [isDialog, setIsDialog] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const passRef = useRef<RNTextInput>(null);
   const validationSchema = yup.object().shape({
     email: yup.string().email('Invalid email').required('Email is required'),
     password: yup
@@ -100,19 +108,6 @@ export default function Login({navigation}: any) {
               .finally(() => {
                 setIsDialog(false);
               });
-            // getIdToken(email)
-            //   .then(res => {
-            //     console.log(
-            //       '🚀 ~ file: index.tsx:108 ~ getIdToken ~ res:',
-            //       res,
-            //     );
-            //   })
-            //   .catch(err => {
-            //     console.log(
-            //       '🚀 ~ file: index.tsx:110 ~ getIdToken ~ err:',
-            //       err,
-            //     );
-            //   });
           }}
         />
       </Dialog.Container>
@@ -145,11 +140,13 @@ export default function Login({navigation}: any) {
             containerStyle={styles.textInputContainer}
             placeholderTextColor={theme.colors.offWhite}
             style={styles.textInput}
+            onSubmitEditing={() => passRef.current?.focus()}
             onChangeText={formik.handleChange('email')}
             onBlur={formik.handleBlur('email')}
             value={formik.values.email}
           />
           <TextInput
+            ref={passRef}
             iconProps={{
               type: 'ionicon',
               name: 'key',
@@ -163,6 +160,7 @@ export default function Login({navigation}: any) {
             placeholderTextColor={theme.colors.offWhite}
             style={styles.textInput}
             onChangeText={formik.handleChange('password')}
+            onSubmitEditing={() => formik.handleSubmit()}
             onBlur={formik.handleBlur('password')}
             value={formik.values.password}
             secureTextEntry={true}

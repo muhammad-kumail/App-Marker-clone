@@ -7,7 +7,7 @@ import {
   View,
   ViewStyle,
 } from 'react-native';
-import React, {useEffect, useState} from 'react';
+import React, {forwardRef, useEffect, useState} from 'react';
 import theme, {scale} from '../../theme';
 import {Icon, IconProps} from 'react-native-elements';
 import CustomText from '../CustomText';
@@ -23,56 +23,54 @@ interface CustomInputProps extends TextInputProps {
   iconProps: IconProps;
   error?: ErrorProps;
 }
-export default function CustomInput({
-  containerStyle,
-  iconProps,
-  error,
-  ...props
-}: CustomInputProps) {
-  const [secure, setSecure] = useState<boolean>(false);
-  useEffect(() => {
-    if (props.secureTextEntry) {
-      setSecure(true);
-    }
-  }, []);
-  return (
-    <View style={{width: '100%'}}>
-      <View style={[styles.container, containerStyle]}>
-        <Icon
-          {...iconProps}
-          color={iconProps.color || theme.colors.white}
-          size={iconProps.size || scale(25)}
-          containerStyle={[styles.icon, iconProps.containerStyle]}
-        />
-        <TextInput
-          {...props}
-          style={[{flex: 1}, props.style]}
-          secureTextEntry={secure}
-        />
-        {props.secureTextEntry === true && (
+const CustomInput = forwardRef<TextInput, CustomInputProps>(
+  ({containerStyle, iconProps, error, ...props}, ref) => {
+    const [secure, setSecure] = useState<boolean>(false);
+    useEffect(() => {
+      if (props.secureTextEntry) {
+        setSecure(true);
+      }
+    }, []);
+    return (
+      <View style={{width: '100%'}}>
+        <View style={[styles.container, containerStyle]}>
           <Icon
-            type="ionicon"
-            name={secure ? 'eye-off' : 'eye'}
-            color={theme.colors.white}
-            size={scale(25)}
-            containerStyle={[styles.icon]}
-            onPress={() => setSecure(!secure)}
+            {...iconProps}
+            color={iconProps.color || theme.colors.white}
+            size={iconProps.size || scale(25)}
+            containerStyle={[styles.icon, iconProps.containerStyle]}
           />
+          <TextInput
+            {...props}
+            ref={ref}
+            style={[{flex: 1}, props.style]}
+            secureTextEntry={secure}
+          />
+          {props.secureTextEntry === true && (
+            <Icon
+              type="ionicon"
+              name={secure ? 'eye-off' : 'eye'}
+              color={theme.colors.white}
+              size={scale(25)}
+              containerStyle={[styles.icon]}
+              onPress={() => setSecure(!secure)}
+            />
+          )}
+        </View>
+        {error?.isError && (
+          <CustomText
+            style={[
+              styles.errorText,
+              error?.isError == true &&
+                error?.color !== undefined && {color: error.color},
+            ]}>
+            {error?.text ? `${error?.text}` : 'Your error message'}
+          </CustomText>
         )}
       </View>
-      {error?.isError && (
-        <CustomText
-          style={[
-            styles.errorText,
-            error?.isError == true &&
-              error?.color !== undefined && {color: error.color},
-          ]}>
-          {error?.text ? `${error?.text}` : 'Your error message'}
-        </CustomText>
-      )}
-    </View>
-  );
-}
+    );
+  },
+);
 
 const styles = StyleSheet.create({
   container: {
@@ -90,3 +88,4 @@ const styles = StyleSheet.create({
     fontSize: theme.fontSizes.verySmall,
   },
 });
+export default CustomInput;

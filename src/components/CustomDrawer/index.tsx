@@ -15,7 +15,7 @@ export default function CustomDrawer({navigation}: any) {
   const dispatch = useDispatch();
   const user = useSelector((state: any) => state.user);
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
       <DrawerItem
         icon={
           <Icon
