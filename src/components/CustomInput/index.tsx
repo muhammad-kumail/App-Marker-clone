@@ -33,26 +33,28 @@ const CustomInput = forwardRef<TextInput, CustomInputProps>(
     }, []);
     return (
       <View style={{width: '100%'}}>
-        <View style={[styles.container, containerStyle]}>
+        <View style={[styles?.container, containerStyle]}>
           <Icon
             {...iconProps}
-            color={iconProps.color || theme.colors.white}
-            size={iconProps.size || scale(25)}
-            containerStyle={[styles.icon, iconProps.containerStyle]}
+            color={iconProps?.color || theme.colors?.white}
+            size={iconProps?.size || scale(25)}
+            containerStyle={[styles?.icon, iconProps?.containerStyle]}
           />
           <TextInput
             {...props}
             ref={ref}
-            style={[{flex: 1}, props.style]}
+            style={[{flex: 1}, props?.style]}
             secureTextEntry={secure}
+            multiline={props?.multiline}
+            numberOfLines={props?.numberOfLines}
           />
           {props.secureTextEntry === true && (
             <Icon
               type="ionicon"
               name={secure ? 'eye-off' : 'eye'}
-              color={theme.colors.white}
+              color={theme?.colors?.white}
               size={scale(25)}
-              containerStyle={[styles.icon]}
+              containerStyle={[styles?.icon]}
               onPress={() => setSecure(!secure)}
             />
           )}
