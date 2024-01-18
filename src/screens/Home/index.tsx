@@ -1,6 +1,9 @@
 import {
   Dimensions,
+  FlatList,
   Image,
+  Pressable,
+  ScrollView,
   StyleSheet,
   TouchableOpacity,
   View,
@@ -20,6 +23,8 @@ import MapView, {
 } from 'react-native-maps';
 import MapViewDirections from 'react-native-maps-directions';
 import Geolocation from '@react-native-community/geolocation';
+import Clipboard from '@react-native-clipboard/clipboard';
+import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import Modal from 'react-native-modal';
 import auth from '@react-native-firebase/auth';
 import {onAuthStateChanged} from '../../services/firebase/authentication';
@@ -27,6 +32,7 @@ import {useDispatch, useSelector} from 'react-redux';
 import {setUser} from '../../redux/reducer';
 import {SvgXml} from 'react-native-svg';
 import {calebrateMarker} from '../../assets/svgs';
+import {TextInput} from '../../components/index';
 
 export default function Home({navigation}: any) {
   // console.log('🚀 ~ file: index.tsx:18 ~ Home ~ token:', token);
@@ -39,8 +45,18 @@ export default function Home({navigation}: any) {
 
   const [isMarker, setisMarker] = useState<boolean>(false);
   const [markerCoord, setMarkerCoord] = useState<LatLng>();
+  const [showView, setShowView] = useState<boolean>(false);
+  const [isModalVisible, setModalVisible] = useState<boolean>(false);
   const [isPoligon, setIsPoligon] = useState<boolean>(false);
   const [polygonIndex, setpolygonIndex] = useState<number>(0);
+  const [markerTitle, setMarkerTitle] = useState<string>('');
+  const [description, setDescription] = useState<string>('');
+  const [selectedColor, setSelectedColor] = useState<string>('#3498db');
+  const [phoneNumber, setPhoneNumber] = useState<string>('#3498db');
+  const [isDatePickerVisible, setDatePickerVisibility] = useState(false);
+  const [isTimePickerVisible, setTimePickerVisibility] = useState(false);
+  const [selectedDate, setSelectedDate] = useState('2024/01/16');
+  const [selectedTime, setSelectedTime] = useState('17:08:59');
   // console.log(
   //   '🚀 ~ Home ~ mapRef.current:',
   //   mapRef.current?.getCamera().then(res => console.log('res:', res)),
@@ -76,6 +92,7 @@ export default function Home({navigation}: any) {
       position => {
         const {latitude, longitude} = position.coords;
         setMyPosition({...myPosition, latitude, longitude});
+        Clipboard.setString(JSON.stringify(currentpos));
       },
       error => {
         console.log('Failed', error.code, error.message);
@@ -155,6 +172,78 @@ export default function Home({navigation}: any) {
       );
     }
   };
+
+  const copyToClipboard = () => {
+    Clipboard.setString(JSON.stringify(currentpos));
+  };
+
+  const toggleModal = () => {
+    setModalVisible(!isModalVisible);
+  };
+
+  const onColorChange = (color: any) => {
+    setSelectedColor(color);
+  };
+
+  const paletteColors = [
+    '#3498db',
+    '#e74c3c',
+    '#2ecc71',
+    '#f39c12',
+    '#9b59b6',
+    '#16a085',
+    '#d35400',
+    '#8e44ad',
+    '#27ae60',
+    '#c0392b',
+    '#2980b9',
+    '#f1c40f',
+    '#34495e',
+    '#e67e22',
+    '#7f8c8d',
+  ];
+
+  const renderItem = ({item}) => (
+    <Pressable
+      onPress={() => onColorChange(item)}
+      style={[
+        styles.colorOption,
+        {
+          backgroundColor: item,
+          borderColor: selectedColor === item ? 'white' : 'transparent',
+        },
+      ]}
+    />
+  );
+
+  const showDatePicker = () => {
+    setDatePickerVisibility(true);
+  };
+
+  const hideDatePicker = () => {
+    setDatePickerVisibility(false);
+  };
+
+  const showTimePicker = () => {
+    setTimePickerVisibility(true);
+  };
+
+  const hideTimePicker = () => {
+    setTimePickerVisibility(false);
+  };
+
+  const handleConfirm = date => {
+    const formattedDate = date?.toLocaleDateString('en-PK');
+    setSelectedDate(formattedDate);
+    hideDatePicker();
+  };
+
+  const handleConfirmTwo = time => {
+    const formattedTime = time?.toLocaleTimeString('en-US', {hour12: false});
+    setSelectedTime(formattedTime);
+    hideTimePicker();
+  };
+
   return (
     <View style={[globalStyles.container]}>
       {isMarker && !isPoligon && (
@@ -296,7 +385,18 @@ export default function Home({navigation}: any) {
                 <>
                   <TouchableOpacity
                     style={styles.belowBtn}
-                    onPress={() => setisMarker(false)}>
+                    onPress={() => {
+                      setisMarker(false);
+                      setShowView(false);
+                    }}>
+                    <Text>Cancel</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.belowBtn}
+                    onPress={() => {
+                      setisMarker(false);
+                      setShowView(false);
+                    }}>
                     <Text>Cancel</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
@@ -304,6 +404,7 @@ export default function Home({navigation}: any) {
                     onPress={() => {
                       setMarkerCoord(currentpos);
                       setisMarker(false);
+                      setShowView(true);
                     }}>
                     <Text>OK</Text>
                   </TouchableOpacity>
@@ -370,6 +471,7 @@ export default function Home({navigation}: any) {
                 </View>
               )}
             </View>
+
             <View style={styles.belowDescription}>
               <Text>lat: {currentpos.latitude.toFixed(5)}</Text>
               <Text>lng: {currentpos.longitude.toFixed(5)}</Text>
@@ -385,6 +487,256 @@ export default function Home({navigation}: any) {
           />
         )}
       </View>
+      {!isModalVisible && showView && (
+        <View style={styles.showHideView}>
+          <View style={styles.markerEighteen}>
+            <Text style={styles.markerHeading}>Marker 18</Text>
+            <Text style={styles.timeAndDate}>2024/01/15 @ 15:27:04</Text>
+          </View>
+
+          <View style={styles.iconsView}>
+            <TouchableOpacity style={styles.box} onPress={toggleModal}>
+              <Icon
+                type="entypo"
+                name="edit"
+                size={scale(20)}
+                color={theme.colors.white}
+              />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={copyToClipboard} style={styles.box}>
+              <Icon
+                type="material-community"
+                name="content-copy"
+                size={scale(20)}
+                color={theme.colors.white}
+              />
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.box}>
+              <Icon
+                type="font-awesome"
+                name="location-arrow"
+                size={scale(20)}
+                color={theme.colors.white}
+              />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.box}>
+              <Icon
+                type="entypo"
+                name="dots-three-vertical"
+                size={scale(20)}
+                color={theme.colors.white}
+              />
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+
+      <Modal
+        isVisible={isModalVisible}
+        onBackdropPress={toggleModal}
+        backdropColor={'transparent'}>
+        <View style={styles.modalContainer}>
+          <ScrollView contentContainerStyle={styles.scrollContentContainer}>
+            <View style={styles.markerTitleView}>
+              <Text style={styles.markerTitleHeading}>Title</Text>
+              <TextInput
+                placeholder="Marker 22"
+                containerStyle={styles.textInputContainer}
+                placeholderTextColor={theme.colors.offWhite}
+                style={styles.textInput}
+                onChangeText={setMarkerTitle}
+                value={markerTitle}
+              />
+
+              <View style={styles.descriptionView}>
+                <Text style={styles.markerTitleHeading}>Description</Text>
+                <TextInput
+                  multiline={true}
+                  numberOfLines={8}
+                  containerStyle={styles.descriptionTextInput}
+                  placeholderTextColor={theme.colors.offWhite}
+                  style={styles.textInput}
+                  onChangeText={setDescription}
+                  value={description}
+                />
+              </View>
+            </View>
+
+            <View style={styles.colorContainer}>
+              <Text style={styles.markerTitleHeading}>Icon and color</Text>
+              <View style={styles.iconAndColorView}>
+                <View style={styles.staticBox}>
+                  <Icon
+                    type="ionicon"
+                    name="location-outline"
+                    size={scale(20)}
+                    color={theme.colors.white}
+                  />
+                </View>
+                <View style={styles.colorBoxContainer}>
+                  <FlatList
+                    data={paletteColors}
+                    keyExtractor={(item, index) => index.toString()}
+                    horizontal
+                    renderItem={renderItem}
+                    contentContainerStyle={styles.flatListContainer}
+                  />
+                </View>
+              </View>
+            </View>
+
+            <View style={styles.phoneNumberView}>
+              <Text style={styles.markerTitleHeading}>Phone Number</Text>
+              <TextInput
+                containerStyle={styles.phoneNumberContainer}
+                placeholderTextColor={theme.colors.offWhite}
+                style={styles.textInput}
+                onChangeText={setPhoneNumber}
+                value={phoneNumber}
+              />
+              <View style={styles.iconSelectionView}>
+                <TouchableOpacity style={styles.selectIcon}>
+                  <Icon
+                    type="font-awesome"
+                    name="phone"
+                    size={scale(20)}
+                    color={theme.colors.white}
+                  />
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.selectIcon}>
+                  <Icon
+                    type="material"
+                    name="dialpad"
+                    size={scale(20)}
+                    color={theme.colors.white}
+                  />
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.selectIcon}>
+                  <Icon
+                    type="material-community"
+                    name="message-processing-outline"
+                    size={scale(20)}
+                    color={theme.colors.white}
+                  />
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.selectIcon}>
+                  <Icon
+                    type="material-community"
+                    name="content-copy"
+                    size={scale(20)}
+                    color={theme.colors.white}
+                  />
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            <View style={styles.plusImagesView}>
+              <Text style={styles.markerTitleHeading}>Images</Text>
+              <TouchableOpacity style={styles.selectIcon}>
+                <Icon
+                  type="entypo"
+                  name="plus"
+                  size={scale(20)}
+                  color={theme.colors.white}
+                />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.gpsView}>
+              <Text style={styles.GPScoordinates}>GPS coordinates</Text>
+              <View>
+                <Text style={styles.latLngText}>
+                  Latitude: {myPosition?.latitude?.toFixed(5)}
+                </Text>
+                <Text style={styles.latLngText}>
+                  Longitude: {myPosition?.longitude?.toFixed(5)}
+                </Text>
+                <View style={styles.gpsViewinRow}>
+                  <TouchableOpacity style={styles.gpsViewinRowIcon}>
+                    <Icon
+                      type="material-community"
+                      name="content-copy"
+                      size={scale(20)}
+                      color={theme.colors.white}
+                    />
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.gpsViewinRowIcon}>
+                    <Icon
+                      type="entypo"
+                      name="edit"
+                      size={scale(20)}
+                      color={theme.colors.white}
+                    />
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+
+            <View style={styles.creationDateView}>
+              <Text style={styles.GPScoordinates}>Creation date</Text>
+              <View style={styles.creationDateViewinRow}>
+                <TouchableOpacity
+                  style={styles.dateTimePicker}
+                  onPress={showDatePicker}>
+                  <Icon
+                    type="material-community"
+                    name="calendar-outline"
+                    size={scale(20)}
+                    color={'white'}
+                  />
+                  <Text style={styles.latLngText}>{selectedDate}</Text>
+                  <DateTimePickerModal
+                    isVisible={isDatePickerVisible}
+                    mode="date"
+                    is24Hour={false}
+                    onConfirm={handleConfirm}
+                    onCancel={hideDatePicker}
+                  />
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.dateTimePicker}
+                  onPress={showTimePicker}>
+                  <Icon
+                    type="feather"
+                    name="clock"
+                    size={scale(20)}
+                    color={'white'}
+                  />
+                  <Text style={styles.latLngText}>{selectedTime}</Text>
+                  <DateTimePickerModal
+                    isVisible={isTimePickerVisible}
+                    mode="time"
+                    is24Hour={false}
+                    onConfirm={handleConfirmTwo}
+                    onCancel={hideTimePicker}
+                  />
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            <View style={styles.extraInformation}>
+              <Text style={styles.GPScoordinates}>Extra information</Text>
+              <Text style={styles.latLngText}>
+                Unnamed Road, Sharqpur, Pakistan
+              </Text>
+
+              <TouchableOpacity style={styles.insertView}>
+                <Icon
+                  type="material-community"
+                  name="clipboard-outline"
+                  size={scale(20)}
+                  color={'white'}
+                />
+                <Text style={styles.latLngText}>Insert...</Text>
+              </TouchableOpacity>
+            </View>
+
+          </ScrollView>
+        </View>
+      </Modal>
+
       {myPosition.latitude !== 0 && myPosition.longitude !== 0 && (
         <MapView
           onPress={e => console.log('e:', e.nativeEvent.coordinate)}
@@ -418,7 +770,7 @@ export default function Home({navigation}: any) {
           loadingEnabled={true}
           showsCompass={true}
           scrollEnabled={true}
-          onTouchStart={e => console.log('e2:', e.nativeEvent)}
+          //onTouchStart={e => console.log('e2:', e.nativeEvent)}
           zoomEnabled={true}
           pitchEnabled={true}
           rotateEnabled={true}>

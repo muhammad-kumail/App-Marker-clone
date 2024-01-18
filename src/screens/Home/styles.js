@@ -1,5 +1,6 @@
-import {StyleSheet} from 'react-native';
+import {Platform, StyleSheet} from 'react-native';
 import theme, {scale} from '../../theme';
+import {normalized} from '../../theme/index';
 
 export const styles = StyleSheet.create({
   container: {
@@ -50,6 +51,7 @@ export const styles = StyleSheet.create({
     justifyContent: 'flex-end',
     gap: scale(8),
     zIndex: 1,
+    // backgroundColor: 'red'
   },
   belowBtn: {
     backgroundColor: theme.colors.transparentBlack,
@@ -64,5 +66,247 @@ export const styles = StyleSheet.create({
     paddingVertical: scale(5),
     borderRadius: scale(5),
     marginHorizontal: scale(5),
+  },
+  showHideView: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    alignSelf: 'center',
+    height: normalized.height(15),
+    width: normalized.width(100),
+    zIndex: 1,
+    backgroundColor: theme.colors.transparentBlack,
+  },
+  markerEighteen: {
+    justifyContent: 'center',
+    alignItems: 'flex-start',
+    alignSelf: 'flex-start',
+    position: 'absolute',
+    top: 0,
+    margin: scale(10),
+    //backgroundColor: 'red',
+  },
+  markerHeading: {
+    fontWeight: 'bold',
+    color: theme.colors.white,
+  },
+  timeAndDate: {
+    color: theme.colors.white,
+  },
+  iconsView: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    width: normalized.width(30),
+    alignSelf: 'flex-end',
+    borderColor: theme.colors.dimWhite,
+    borderWidth: 0.2,
+    borderRightColor: theme.colors.transparentBlack,
+  },
+  box: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: '50%',
+    height: '50%',
+    borderWidth: 0.3,
+    borderColor: theme.colors.dimWhite,
+    borderBottomColor: theme.colors.transparentBlack,
+    borderRightColor: theme.colors.transparentBlack,
+  },
+  modalContainer: {
+    width: normalized.width(95),
+    height:
+      Platform.OS === 'ios' ? normalized.height(80) : normalized.height(85),
+    marginTop:
+      Platform.OS === 'ios' ? normalized.height(11) : normalized.height(5),
+    justifyContent: 'flex-start',
+    alignItems: 'center',
+    alignSelf: 'center',
+    backgroundColor: theme.colors.transparentBlack,
+  },
+  scrollContentContainer: {
+    flexGrow: 1,
+  },
+  markerTitleView: {
+    justifyContent: 'center',
+    alignItems: 'flex-start',
+    alignSelf: 'center',
+    marginVertical: scale(15),
+  },
+  markerTitleHeading: {
+    color: theme.colors.white,
+    fontSize: theme.fontSizes.medium,
+    fontWeight: 'bold',
+  },
+  textInputContainer: {
+    marginVertical: scale(8),
+    width: normalized.width(85),
+    borderRadius: scale(8),
+    borderWidth: 1,
+    borderColor: theme.colors.dimWhite,
+    backgroundColor: theme.colors.transparentBlack,
+  },
+  textInput: {
+    color: theme.colors.white,
+    fontSize: theme.fontSizes.small,
+  },
+  descriptionView: {
+    justifyContent: 'center',
+    alignItems: 'flex-start',
+    marginVertical: scale(10),
+    // backgroundColor: 'red'
+  },
+  descriptionTextInput: {
+    marginVertical: scale(10),
+    paddingVertical: Platform.OS === 'ios' ? scale(50) : 0,
+    width: normalized.width(85),
+    borderRadius: scale(8),
+    borderWidth: 1,
+    borderColor: theme.colors.dimWhite,
+    backgroundColor: theme.colors.transparentBlack,
+  },
+  colorContainer: {
+    marginVertical: scale(-10),
+  },
+  iconAndColorView: {
+    flexDirection: 'row',
+  },
+  staticBox: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: scale(50),
+    height: scale(50),
+    borderRadius: scale(5),
+    marginTop: scale(7),
+    borderWidth: 1,
+    borderColor: theme.colors.dimWhite,
+    backgroundColor: theme.colors.transparentBlack,
+  },
+  colorBoxContainer: {
+    flex: 1,
+  },
+  colorOption: {
+    width: scale(40),
+    height: scale(40),
+    borderRadius: scale(5),
+    margin: scale(6),
+  },
+  flatListContainer: {
+    paddingVertical: scale(7),
+  },
+  phoneNumberView: {
+    justifyContent: 'center',
+    alignItems: 'flex-start',
+    marginVertical: scale(25),
+    gap: scale(5),
+    //backgroundColor: 'red'
+  },
+  phoneNumberContainer: {
+    marginVertical: scale(8),
+    paddingVertical: scale(10),
+    width: normalized.width(50),
+    borderRadius: scale(8),
+    borderWidth: 1,
+    borderColor: theme.colors.dimWhite,
+    backgroundColor: theme.colors.transparentBlack,
+  },
+  iconSelectionView: {
+    flexDirection: 'row',
+    gap: scale(20),
+  },
+  selectIcon: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: scale(50),
+    height: scale(50),
+    borderRadius: scale(5),
+    borderWidth: 1,
+    borderColor: theme.colors.dimWhite,
+    backgroundColor: theme.colors.transparentBlack,
+  },
+  plusImagesView: {
+    justifyContent: 'center',
+    alignItems: 'flex-start',
+    gap: scale(10),
+  },
+  gpsView: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    marginVertical: scale(20),
+    gap: scale(8),
+    //backgroundColor: 'red',
+  },
+  GPScoordinates: {
+    fontWeight: 'bold',
+    fontSize: theme.fontSizes.medium,
+    color: theme.colors.white,
+    alignSelf: 'flex-start',
+  },
+  latLngText: {
+    color: theme.colors.white,
+    alignSelf: 'flex-start',
+  },
+  gpsViewinRow: {
+    marginVertical: scale(8),
+    gap: scale(10),
+    flexDirection: 'row',
+    justifyContent: 'flex-start',
+    alignItems: 'center',
+  },
+  gpsViewinRowIcon: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: scale(50),
+    height: scale(50),
+    borderRadius: scale(5),
+    borderWidth: 1,
+    borderColor: theme.colors.dimWhite,
+    backgroundColor: theme.colors.transparentBlack,
+  },
+  creationDateView: {
+    justifyContent: 'flex-start',
+    alignItems: 'center',
+    gap: scale(10),
+    //backgroundColor: 'red',
+  },
+  creationDateViewinRow: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: scale(10),
+  },
+  dateTimePicker: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: scale(10),
+    padding: scale(10),
+    borderRadius: scale(5),
+    borderWidth: 1,
+    borderColor: theme.colors.dimWhite,
+    backgroundColor: theme.colors.transparentBlack,
+  },
+  extraInformation: {
+    justifyContent: 'flex-start',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    marginVertical: scale(20),
+    gap: scale(10),
+    //backgroundColor: 'red'
+  },
+  insertView: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    gap: scale(10),
+    width: scale(100),
+    padding: scale(10),
+    borderRadius: scale(5),
+    borderWidth: 1,
+    borderColor: theme.colors.dimWhite,
+    backgroundColor: theme.colors.transparentBlack,
   },
 });
