@@ -16,6 +16,7 @@ export const styles = StyleSheet.create({
     backgroundColor: theme.colors.transparentBlack,
     borderRadius: scale(6),
     left: scale(0),
+    alignItems: 'center',
   },
   centeredElement: {
     position: 'absolute',
@@ -155,12 +156,13 @@ export const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'flex-start',
     marginVertical: scale(10),
-    // backgroundColor: 'red'
+    // backgroundColor: 'transparent',
   },
   descriptionTextInput: {
     marginVertical: scale(10),
     paddingVertical: Platform.OS === 'ios' ? scale(50) : 0,
     width: normalized.width(85),
+    height: normalized.width(40),
     borderRadius: scale(8),
     borderWidth: 1,
     borderColor: theme.colors.dimWhite,
@@ -185,6 +187,8 @@ export const styles = StyleSheet.create({
   },
   colorBoxContainer: {
     flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   colorOption: {
     width: scale(40),
@@ -194,6 +198,7 @@ export const styles = StyleSheet.create({
   },
   flatListContainer: {
     paddingVertical: scale(7),
+    alignItems: 'center',
   },
   phoneNumberView: {
     justifyContent: 'center',
@@ -204,7 +209,7 @@ export const styles = StyleSheet.create({
   },
   phoneNumberContainer: {
     marginVertical: scale(8),
-    paddingVertical: scale(10),
+    paddingVertical: scale(5),
     width: normalized.width(50),
     borderRadius: scale(8),
     borderWidth: 1,
@@ -302,7 +307,6 @@ export const styles = StyleSheet.create({
     alignSelf: 'flex-start',
     flexDirection: 'row',
     gap: scale(10),
-    width: scale(100),
     padding: scale(10),
     borderRadius: scale(5),
     borderWidth: 1,
