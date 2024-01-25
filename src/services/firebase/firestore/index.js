@@ -49,12 +49,13 @@ export const addMarker = marker => {
           phone: marker.phone,
           images: marker.images,
           extraInfo: marker.extraInfo,
+          updatedAt: marker.updatedAt,
         })
         .then(res => {
           resolve({result: res, message: 'Marker added Successfully'});
         })
         .catch(err => {
-          reject({result: null, message: err});
+          reject({result: err, message: 'Marker adding failed'});
         });
     } else reject({result: null, message: 'No user Logged in'});
   });
@@ -75,7 +76,7 @@ export const editMarker = marker => {
           resolve({result: res, message: 'Marker updated successfully'});
         })
         .catch(err => {
-          reject({result: null, message: err});
+          reject({result: err, message: 'Marker updation failed'});
         });
     } else {
       reject({result: null, message: 'No user logged in'});
@@ -94,46 +95,10 @@ export const deleteMarker = markerId => {
           resolve({message: 'Marker deleted successfully'});
         })
         .catch(err => {
-          reject({message: err});
+          reject({result: err, message: 'Marker deletion failed'});
         });
     } else {
-      reject({message: 'No user Logged in'});
+      reject({result: null, message: 'No user Logged in'});
     }
   });
 };
-
-export const getUniqueMarkerName = async () => {
-  try {
-    // Fetch all markers
-    const markersSnapshot = await firestore().collection('markers').get();
-    const existingNames = markersSnapshot.docs.map(doc => doc.data().title);
-
-    // Base name for the marker
-    let baseName = 'marker';
-    let counter = 0;
-    let uniqueName = baseName;
-
-    // Check if the name exists and increment counter until a unique name is found
-    while (existingNames.includes(uniqueName)) {
-      counter++;
-      uniqueName = `${baseName} ${counter}`;
-    }
-
-    return uniqueName;
-  } catch (error) {
-    console.error('Error fetching markers: ', error);
-    // throw error;
-    const text = errorHandler(error);
-    Alert.alert(text.code, text.message);
-    return null;
-  }
-};
-
-// Example usage
-// getUniqueMarkerName()
-//   .then(uniqueName => {
-//     console.log('Unique Marker Name:', uniqueName);
-//   })
-//   .catch(error => {
-//     console.log('Error:', error);
-//   });

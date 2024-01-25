@@ -36,17 +36,14 @@ import {setUser} from '../../redux/reducer';
 import {SvgXml} from 'react-native-svg';
 import {calebrateMarker} from '../../assets/svgs';
 import {TextInput} from '../../components/index';
-import {
-  addMarker,
-  editMarker,
-  getUniqueMarkerName,
-} from '../../services/firebase/firestore';
+import {addMarker, editMarker} from '../../services/firebase/firestore';
 //@ts-ignore
 import {Table, Row, Rows} from 'react-native-table-component';
 import Geocoder from 'react-native-geocoding';
 import {mapApiKey} from '../../utils/constants';
 import {capitalize} from '../../utils/helper';
 import {Alert} from 'react-native';
+import firestore from '@react-native-firebase/firestore';
 
 interface MarkerForm {
   _id: string;
@@ -98,6 +95,18 @@ export default function Home({navigation}: any) {
     extraInfo: '',
     updatedAt: new Date(),
   });
+  const validate = () => {
+    if (
+      !markerForm.title ||
+      !markerForm.color ||
+      markerForm.coordinates.length == 0 ||
+      !markerForm.type
+    ) {
+      return false;
+    } else {
+      return true;
+    }
+  };
 
   const [currentpos, setCurrentPos] = useState({
     latitude: 0,
@@ -242,6 +251,25 @@ export default function Home({navigation}: any) {
     '#e67e22',
     '#7f8c8d',
   ];
+  const getUniqueMarkerName = async () => {
+    try {
+      const markersSnapshot = await firestore().collection('markers').get();
+      const existingNames = markersSnapshot.docs.map(doc => doc.data().title);
+
+      let baseName = 'marker';
+      let counter = 0;
+      let uniqueName = baseName;
+
+      while (existingNames.includes(uniqueName)) {
+        counter++;
+        uniqueName = `${baseName} ${counter}`;
+      }
+
+      onUpdateMarkerForm('title', uniqueName);
+    } catch (error) {
+      console.error('Error fetching markers: ', error);
+    }
+  };
 
   const renderItem = ({item, index}: any) => (
     <Pressable
@@ -280,22 +308,30 @@ export default function Home({navigation}: any) {
     showView && getAddressFromCoordinates(markerForm.coordinates[0]);
   }, [showView]);
   const handleSubmit = () => {
-    if (markerForm._id) {
-      editMarker(markerForm)
-        .then(res => {
-          console.log('🚀 ~ editMarker ~ res:', res);
-        })
-        .catch(err => {
-          console.log('🚀 ~ editMarker ~ err:', err);
-        });
+    if (!validate) {
+      Alert.alert('Failed', 'Title, Color & Coordinates should not be empty');
     } else {
-      addMarker(markerForm)
-        .then(res => {
-          console.log('🚀 ~ addMarker ~ res:', res);
-        })
-        .catch(err => {
-          console.log('🚀 ~ addMarker ~ err:', err);
-        });
+      if (markerForm._id) {
+        editMarker(markerForm)
+          .then(res => {
+            console.log('🚀 ~ editMarker ~ res.result:', res.result);
+            Alert.alert('Success', res.message);
+          })
+          .catch(err => {
+            console.log('🚀 ~ editMarker ~ err:', err);
+            Alert.alert('Failed', err.message);
+          });
+      } else {
+        addMarker(markerForm)
+          .then(res => {
+            console.log('🚀 ~ addMarker ~ res.result:', res.result);
+            Alert.alert('Success', res.message);
+          })
+          .catch(err => {
+            console.log('🚀 ~ addMarker ~ err:', err);
+            Alert.alert('Failed', err.message);
+          });
+      }
     }
   };
 
@@ -346,6 +382,12 @@ export default function Home({navigation}: any) {
                 style={{
                   borderTopRightRadius: scale(6),
                   borderBottomRightRadius: scale(6),
+                }}
+                onPress={() => {
+                  if (isModalVisible) {
+                    handleSubmit();
+                    console.log('test save click');
+                  }
                 }}
               />
             </View>
@@ -482,8 +524,15 @@ export default function Home({navigation}: any) {
                         isPoligon,
                         isPoliLine,
                       );
+                      if (isPoliLine) {
+                        onUpdateMarkerForm('type', 'polyline');
+                      } else if (isPoligon) {
+                        onUpdateMarkerForm('type', 'polygon');
+                      } else {
+                        onUpdateMarkerForm('type', 'single');
+                      }
                       setShowView(true);
-                      onUpdateMarkerForm('title', getUniqueMarkerName() || '');
+                      getUniqueMarkerName();
                     }}>
                     <Text>OK</Text>
                   </TouchableOpacity>
@@ -556,7 +605,15 @@ export default function Home({navigation}: any) {
                         isPoligon,
                         isPoliLine,
                       );
+                      if (isPoliLine) {
+                        onUpdateMarkerForm('type', 'polyline');
+                      } else if (isPoligon) {
+                        onUpdateMarkerForm('type', 'polygon');
+                      } else {
+                        onUpdateMarkerForm('type', 'single');
+                      }
                       setShowView(true);
+                      getUniqueMarkerName();
                     }}
                   />
                 </View>
@@ -671,8 +728,8 @@ export default function Home({navigation}: any) {
 
       <Modal
         isVisible={isModalVisible}
-        onBackdropPress={toggleModal}
-        backdropColor={'transparent'}>
+        // onBackdropPress={toggleModal}
+        hasBackdrop={false}>
         <View style={styles.modalContainer}>
           <ScrollView
             ref={scrollRef}
