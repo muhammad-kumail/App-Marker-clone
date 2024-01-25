@@ -20,7 +20,7 @@ interface ErrorProps {
 
 interface CustomInputProps extends TextInputProps {
   containerStyle?: StyleProp<ViewStyle>;
-  iconProps: IconProps;
+  iconProps?: IconProps;
   error?: ErrorProps;
 }
 const CustomInput = forwardRef<TextInput, CustomInputProps>(
@@ -34,12 +34,14 @@ const CustomInput = forwardRef<TextInput, CustomInputProps>(
     return (
       <View style={{width: '100%'}}>
         <View style={[styles?.container, containerStyle]}>
-          <Icon
-            {...iconProps}
-            color={iconProps?.color || theme.colors?.white}
-            size={iconProps?.size || scale(25)}
-            containerStyle={[styles?.icon, iconProps?.containerStyle]}
-          />
+          {iconProps?.name && (
+            <Icon
+              {...iconProps}
+              color={iconProps?.color || theme.colors?.white}
+              size={iconProps?.size || scale(25)}
+              containerStyle={[styles?.icon, iconProps?.containerStyle]}
+            />
+          )}
           <TextInput
             {...props}
             ref={ref}

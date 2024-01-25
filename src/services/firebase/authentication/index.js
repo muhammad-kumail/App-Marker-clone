@@ -130,3 +130,7 @@ export const sendPasswordResetEmail = email => {
       });
   });
 };
+export const getCurrentUserId = () => {
+  const user = auth().currentUser;
+  return user ? user?.uid : null;
+};

@@ -2,6 +2,8 @@ import {
   Dimensions,
   FlatList,
   Image,
+  Linking,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -10,7 +12,7 @@ import {
 } from 'react-native';
 import React, {useEffect, useRef, useState} from 'react';
 import {globalStyles} from '../../globalStyles';
-import theme, {scale} from '../../theme';
+import theme, {normalized, scale} from '../../theme';
 import {Icon} from 'react-native-elements';
 import {CircularButton, MainIcon, Text} from '../../components';
 import {styles} from './styles';
@@ -19,6 +21,7 @@ import MapView, {
   Marker,
   PROVIDER_GOOGLE,
   Polygon,
+  Polyline,
   Region,
 } from 'react-native-maps';
 import MapViewDirections from 'react-native-maps-directions';
@@ -33,6 +36,27 @@ import {setUser} from '../../redux/reducer';
 import {SvgXml} from 'react-native-svg';
 import {calebrateMarker} from '../../assets/svgs';
 import {TextInput} from '../../components/index';
+import {addMarker, editMarker} from '../../services/firebase/firestore';
+//@ts-ignore
+import {Table, Row, Rows} from 'react-native-table-component';
+import Geocoder from 'react-native-geocoding';
+import {mapApiKey} from '../../utils/constants';
+import {capitalize} from '../../utils/helper';
+import {Alert} from 'react-native';
+import firestore from '@react-native-firebase/firestore';
+
+interface MarkerForm {
+  _id: string;
+  title: string;
+  description: string;
+  color: string;
+  coordinates: Region[];
+  images: string[]; // assuming images are an array of strings (URLs or paths)
+  phone: string;
+  type: string;
+  extraInfo: string;
+  updatedAt: Date;
+}
 
 export default function Home({navigation}: any) {
   // console.log('🚀 ~ file: index.tsx:18 ~ Home ~ token:', token);
@@ -40,6 +64,7 @@ export default function Home({navigation}: any) {
   const token = useSelector((state: any) => state.token);
   const user = useSelector((state: any) => state.user);
   const mapRef = useRef<MapView>(null);
+  const scrollRef = useRef<ScrollView>(null);
   const {width, height} = Dimensions.get('window');
   const [mapHead, setMapHead] = useState<number>(0);
 
@@ -48,6 +73,7 @@ export default function Home({navigation}: any) {
   const [showView, setShowView] = useState<boolean>(false);
   const [isModalVisible, setModalVisible] = useState<boolean>(false);
   const [isPoligon, setIsPoligon] = useState<boolean>(false);
+  const [isPoliLine, setIsPoliLine] = useState<boolean>(false);
   const [polygonIndex, setpolygonIndex] = useState<number>(0);
   const [markerTitle, setMarkerTitle] = useState<string>('');
   const [description, setDescription] = useState<string>('');
@@ -57,10 +83,30 @@ export default function Home({navigation}: any) {
   const [isTimePickerVisible, setTimePickerVisibility] = useState(false);
   const [selectedDate, setSelectedDate] = useState('2024/01/16');
   const [selectedTime, setSelectedTime] = useState('17:08:59');
-  // console.log(
-  //   '🚀 ~ Home ~ mapRef.current:',
-  //   mapRef.current?.getCamera().then(res => console.log('res:', res)),
-  // );
+  const [markerForm, setMarkerForm] = useState<MarkerForm>({
+    _id: '',
+    title: '',
+    description: '',
+    color: '',
+    coordinates: [],
+    images: [],
+    phone: '',
+    type: '',
+    extraInfo: '',
+    updatedAt: new Date(),
+  });
+  const validate = () => {
+    if (
+      !markerForm.title ||
+      !markerForm.color ||
+      markerForm.coordinates.length == 0 ||
+      !markerForm.type
+    ) {
+      return false;
+    } else {
+      return true;
+    }
+  };
 
   const [currentpos, setCurrentPos] = useState({
     latitude: 0,
@@ -78,10 +124,17 @@ export default function Home({navigation}: any) {
   const [watchId, setWatchId] = useState<number>(0);
 
   useEffect(() => {
+    Geocoder.init(mapApiKey);
     Geolocation.getCurrentPosition(pos => {
       const {latitude, longitude} = pos.coords;
 
       setMyPosition({
+        latitude,
+        longitude,
+        latitudeDelta: 0.1,
+        longitudeDelta: 0.1 * (width / height),
+      });
+      setCurrentPos({
         latitude,
         longitude,
         latitudeDelta: 0.1,
@@ -92,7 +145,7 @@ export default function Home({navigation}: any) {
       position => {
         const {latitude, longitude} = position.coords;
         setMyPosition({...myPosition, latitude, longitude});
-        Clipboard.setString(JSON.stringify(currentpos));
+        Clipboard.setString(`${currentpos.latitude}, ${currentpos.longitude}`);
       },
       error => {
         console.log('Failed', error.code, error.message);
@@ -121,16 +174,6 @@ export default function Home({navigation}: any) {
       longitude: coord.longitude,
     });
     setPolygonCoordinates(polygon);
-    // isEdit &&
-    //   mapRef.current?.animateToRegion(
-    //     {
-    //       latitude: coord.latitude,
-    //       longitude: coord.longitude,
-    //       latitudeDelta: currentpos.latitudeDelta,
-    //       longitudeDelta: currentpos.longitudeDelta,
-    //     },
-    //     0,
-    //   );
     !isEdit && setpolygonIndex(polygonIndex + 1);
   };
   const removePolygonCoordinate = () => {
@@ -174,11 +217,17 @@ export default function Home({navigation}: any) {
   };
 
   const copyToClipboard = () => {
-    Clipboard.setString(JSON.stringify(currentpos));
+    Clipboard.setStrings(
+      markerForm.coordinates.map(
+        (item: LatLng) =>
+          `${item?.latitude?.toFixed(5)}, ${item?.longitude?.toFixed(5)}`,
+      ),
+    );
   };
 
   const toggleModal = () => {
     setModalVisible(!isModalVisible);
+    setisMarker(false);
   };
 
   const onColorChange = (color: any) => {
@@ -202,51 +251,93 @@ export default function Home({navigation}: any) {
     '#e67e22',
     '#7f8c8d',
   ];
+  const getUniqueMarkerName = async () => {
+    try {
+      const markersSnapshot = await firestore().collection('markers').get();
+      const existingNames = markersSnapshot.docs.map(doc => doc.data().title);
 
-  const renderItem = ({item}) => (
+      let baseName = 'marker';
+      let counter = 0;
+      let uniqueName = baseName;
+
+      while (existingNames.includes(uniqueName)) {
+        counter++;
+        uniqueName = `${baseName} ${counter}`;
+      }
+
+      onUpdateMarkerForm('title', uniqueName);
+    } catch (error) {
+      console.error('Error fetching markers: ', error);
+    }
+  };
+
+  const renderItem = ({item, index}: any) => (
     <Pressable
-      onPress={() => onColorChange(item)}
+      onPress={() => onUpdateMarkerForm('color', item)}
       style={[
         styles.colorOption,
         {
           backgroundColor: item,
           borderColor: selectedColor === item ? 'white' : 'transparent',
+          height: markerForm.color === item ? scale(45) : scale(40),
+          width: markerForm.color === item ? scale(45) : scale(40),
         },
       ]}
     />
   );
-
-  const showDatePicker = () => {
-    setDatePickerVisibility(true);
+  const onUpdateMarkerForm = (name: string, value: string | object | Date) => {
+    setMarkerForm(prevState => ({
+      ...prevState,
+      [name]: value,
+    }));
+  };
+  const getAddressFromCoordinates = (coord: Region) => {
+    Geocoder.from({
+      latitude: coord?.latitude,
+      longitude: coord?.longitude,
+    })
+      .then(json => {
+        onUpdateMarkerForm('extraInfo', json?.results[0]?.formatted_address);
+      })
+      .catch(error => {
+        console.log(error);
+      });
   };
 
-  const hideDatePicker = () => {
-    setDatePickerVisibility(false);
-  };
-
-  const showTimePicker = () => {
-    setTimePickerVisibility(true);
-  };
-
-  const hideTimePicker = () => {
-    setTimePickerVisibility(false);
-  };
-
-  const handleConfirm = date => {
-    const formattedDate = date?.toLocaleDateString('en-PK');
-    setSelectedDate(formattedDate);
-    hideDatePicker();
-  };
-
-  const handleConfirmTwo = time => {
-    const formattedTime = time?.toLocaleTimeString('en-US', {hour12: false});
-    setSelectedTime(formattedTime);
-    hideTimePicker();
+  useEffect(() => {
+    showView && getAddressFromCoordinates(markerForm.coordinates[0]);
+  }, [showView]);
+  const handleSubmit = () => {
+    if (!validate) {
+      Alert.alert('Failed', 'Title, Color & Coordinates should not be empty');
+    } else {
+      if (markerForm._id) {
+        editMarker(markerForm)
+          .then(res => {
+            console.log('🚀 ~ editMarker ~ res.result:', res.result);
+            Alert.alert('Success', res.message);
+          })
+          .catch(err => {
+            console.log('🚀 ~ editMarker ~ err:', err);
+            Alert.alert('Failed', err.message);
+          });
+      } else {
+        addMarker(markerForm)
+          .then(res => {
+            console.log('🚀 ~ addMarker ~ res.result:', res.result);
+            Alert.alert('Success', res.message);
+          })
+          .catch(err => {
+            console.log('🚀 ~ addMarker ~ err:', err);
+            Alert.alert('Failed', err.message);
+          });
+      }
+    }
   };
 
   return (
     <View style={[globalStyles.container]}>
-      {isMarker && !isPoligon && (
+      {isMarker && !isPoligon && !isPoliLine && (
         <SvgXml
           style={styles.centeredElement}
           xml={calebrateMarker}
@@ -263,25 +354,49 @@ export default function Home({navigation}: any) {
           {!isMarker && (
             <View style={styles.topInnerView}>
               <MainIcon
-                name="bars"
-                type="font-awesome"
+                name={isModalVisible ? 'arrowleft' : 'bars'}
+                type={isModalVisible ? 'antdesign' : 'font-awesome'}
                 style={styles.bars}
-                onPress={() => navigation.openDrawer()}
+                onPress={() => {
+                  isModalVisible ? toggleModal() : navigation.openDrawer();
+                }}
               />
-              <MainIcon name="filter-sharp" type="ionicon" />
-              <MainIcon name="list-sharp" type="ionicon" />
-              <MainIcon name="search-sharp" type="ionicon" />
               <MainIcon
-                name="ios-share"
-                type="material"
+                name={isModalVisible ? 'folder' : 'filter-sharp'}
+                type={isModalVisible ? 'font-awesome' : 'ionicon'}
+              />
+              {isModalVisible ? (
+                <Text style={isModalVisible && {flex: 1}}>
+                  {capitalize('markers')}
+                </Text>
+              ) : (
+                <MainIcon name="list-sharp" type="ionicon" />
+              )}
+              <MainIcon
+                name={isModalVisible ? 'dots-three-vertical' : 'search-sharp'}
+                type={isModalVisible ? 'entypo' : 'ionicon'}
+              />
+              <MainIcon
+                name={isModalVisible ? 'save' : 'ios-share'}
+                type={isModalVisible ? 'entypo' : 'material'}
                 style={{
                   borderTopRightRadius: scale(6),
                   borderBottomRightRadius: scale(6),
                 }}
+                onPress={() => {
+                  if (isModalVisible) {
+                    handleSubmit();
+                    console.log('test save click');
+                  }
+                }}
               />
             </View>
           )}
-          <Text style={{textAlign: 'center'}}>
+          <Text
+            style={{
+              display: isModalVisible ? 'none' : 'flex',
+              textAlign: 'center',
+            }}>
             Move the map around to place your marker where you want and click OK
             to place it.
           </Text>
@@ -342,19 +457,25 @@ export default function Home({navigation}: any) {
             <CircularButton
               icon={{name: 'analytics-outline', type: 'ionicon'}}
               style={{
-                display: !isPoligon ? 'flex' : 'none',
+                display: !isPoligon && !isPoliLine ? 'flex' : 'none',
                 alignSelf: 'baseline',
+              }}
+              onPress={() => {
+                setIsPoliLine(!isPoliLine);
               }}
             />
             <CircularButton
               icon={{
-                name: isPoligon ? 'close' : 'vector-polygon',
-                type: isPoligon ? 'AntDesign' : 'material-community',
+                name: isPoligon || isPoliLine ? 'close' : 'vector-polygon',
+                type:
+                  isPoligon || isPoliLine ? 'AntDesign' : 'material-community',
               }}
               style={{alignSelf: 'baseline'}}
               onPress={() => {
-                setIsPoligon(!isPoligon);
-                if (!isPoligon) {
+                isPoliLine
+                  ? setIsPoliLine(!isPoliLine)
+                  : setIsPoligon(!isPoligon);
+                if (!isPoligon || !isPoliLine) {
                   setPolygonCoordinates([
                     {
                       latitude: currentpos.latitude,
@@ -364,13 +485,14 @@ export default function Home({navigation}: any) {
                 } else {
                   setPolygonCoordinates([]);
                   setpolygonIndex(0);
+                  setShowView(false);
                 }
               }}
             />
             <CircularButton
               icon={{name: 'vector-circle-variant', type: 'material-community'}}
               style={{
-                display: !isPoligon ? 'flex' : 'none',
+                display: !isPoligon && !isPoliLine ? 'flex' : 'none',
                 alignSelf: 'baseline',
               }}
             />
@@ -381,7 +503,7 @@ export default function Home({navigation}: any) {
         {isMarker ? (
           <>
             <View style={{flexDirection: 'row'}}>
-              {!isPoligon ? (
+              {!isPoligon && !isPoliLine ? (
                 <>
                   <TouchableOpacity
                     style={styles.belowBtn}
@@ -394,17 +516,23 @@ export default function Home({navigation}: any) {
                   <TouchableOpacity
                     style={styles.belowBtn}
                     onPress={() => {
-                      setisMarker(false);
-                      setShowView(false);
-                    }}>
-                    <Text>Cancel</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.belowBtn}
-                    onPress={() => {
                       setMarkerCoord(currentpos);
+                      onUpdateMarkerForm('coordinates', [currentpos]);
                       setisMarker(false);
+                      console.log(
+                        'isPoligon, isPoliLine',
+                        isPoligon,
+                        isPoliLine,
+                      );
+                      if (isPoliLine) {
+                        onUpdateMarkerForm('type', 'polyline');
+                      } else if (isPoligon) {
+                        onUpdateMarkerForm('type', 'polygon');
+                      } else {
+                        onUpdateMarkerForm('type', 'single');
+                      }
                       setShowView(true);
+                      getUniqueMarkerName();
                     }}>
                     <Text>OK</Text>
                   </TouchableOpacity>
@@ -414,6 +542,7 @@ export default function Home({navigation}: any) {
                   style={[
                     styles.belowDescription,
                     {
+                      display: showView ? 'none' : 'flex',
                       flexDirection: 'row',
                       alignItems: 'center',
                       gap: scale(10),
@@ -467,12 +596,35 @@ export default function Home({navigation}: any) {
                     name="save"
                     size={scale(20)}
                     color={theme.colors.white}
+                    onPress={() => {
+                      // setIsPoliLine(false);
+                      // setIsPoligon(false);
+                      onUpdateMarkerForm('coordinates', polygonCoordinates);
+                      console.log(
+                        'isPoligon, isPoliLine',
+                        isPoligon,
+                        isPoliLine,
+                      );
+                      if (isPoliLine) {
+                        onUpdateMarkerForm('type', 'polyline');
+                      } else if (isPoligon) {
+                        onUpdateMarkerForm('type', 'polygon');
+                      } else {
+                        onUpdateMarkerForm('type', 'single');
+                      }
+                      setShowView(true);
+                      getUniqueMarkerName();
+                    }}
                   />
                 </View>
               )}
             </View>
 
-            <View style={styles.belowDescription}>
+            <View
+              style={[
+                styles.belowDescription,
+                {display: showView ? 'none' : 'flex'},
+              ]}>
               <Text>lat: {currentpos.latitude.toFixed(5)}</Text>
               <Text>lng: {currentpos.longitude.toFixed(5)}</Text>
             </View>
@@ -490,8 +642,18 @@ export default function Home({navigation}: any) {
       {!isModalVisible && showView && (
         <View style={styles.showHideView}>
           <View style={styles.markerEighteen}>
-            <Text style={styles.markerHeading}>Marker 18</Text>
-            <Text style={styles.timeAndDate}>2024/01/15 @ 15:27:04</Text>
+            <Text style={styles.markerHeading}>{markerForm.title}</Text>
+            <Text style={styles.timeAndDate}>
+              {markerForm.updatedAt.toLocaleString('en-US', {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+                hour12: false,
+              })}
+            </Text>
           </View>
 
           <View style={styles.iconsView}>
@@ -512,7 +674,18 @@ export default function Home({navigation}: any) {
               />
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.box}>
+            <TouchableOpacity
+              style={styles.box}
+              onPress={() => {
+                let latLog = `${markerForm?.coordinates[0]?.latitude},${markerForm?.coordinates[0]?.longitude}`;
+                Linking.openURL(
+                  //@ts-ignore
+                  Platform.select({
+                    ios: `maps://app?daddr=${latLog}l&dirflg=d`,
+                    android: `google.navigation:q=${latLog}&mode=d`,
+                  }),
+                );
+              }}>
               <Icon
                 type="font-awesome"
                 name="location-arrow"
@@ -520,7 +693,28 @@ export default function Home({navigation}: any) {
                 color={theme.colors.white}
               />
             </TouchableOpacity>
-            <TouchableOpacity style={styles.box}>
+            <TouchableOpacity
+              style={styles.box}
+              onPress={() => {
+                Alert.alert(
+                  'Confirm',
+                  "Are you sure you wan't to delete marker?",
+                  [
+                    {
+                      text: 'Cancel',
+                      onPress: () => null,
+                    },
+                    {
+                      text: 'Ok',
+                      onPress: () => {
+                        setPolygonCoordinates(prev => [prev[prev.length - 1]]);
+                        setShowView(false);
+                        setMarkerCoord(undefined);
+                      },
+                    },
+                  ],
+                );
+              }}>
               <Icon
                 type="entypo"
                 name="dots-three-vertical"
@@ -534,10 +728,13 @@ export default function Home({navigation}: any) {
 
       <Modal
         isVisible={isModalVisible}
-        onBackdropPress={toggleModal}
-        backdropColor={'transparent'}>
+        // onBackdropPress={toggleModal}
+        hasBackdrop={false}>
         <View style={styles.modalContainer}>
-          <ScrollView contentContainerStyle={styles.scrollContentContainer}>
+          <ScrollView
+            ref={scrollRef}
+            contentContainerStyle={styles.scrollContentContainer}
+            showsVerticalScrollIndicator={false}>
             <View style={styles.markerTitleView}>
               <Text style={styles.markerTitleHeading}>Title</Text>
               <TextInput
@@ -545,37 +742,41 @@ export default function Home({navigation}: any) {
                 containerStyle={styles.textInputContainer}
                 placeholderTextColor={theme.colors.offWhite}
                 style={styles.textInput}
-                onChangeText={setMarkerTitle}
-                value={markerTitle}
+                onChangeText={e => onUpdateMarkerForm('title', e)}
+                value={markerForm.title}
               />
 
               <View style={styles.descriptionView}>
                 <Text style={styles.markerTitleHeading}>Description</Text>
-                <TextInput
-                  multiline={true}
-                  numberOfLines={8}
-                  containerStyle={styles.descriptionTextInput}
-                  placeholderTextColor={theme.colors.offWhite}
-                  style={styles.textInput}
-                  onChangeText={setDescription}
-                  value={description}
-                />
+                <View style={styles.descriptionTextInput}>
+                  <TextInput
+                    multiline={true}
+                    containerStyle={{
+                      backgroundColor: 'transparent',
+                    }}
+                    placeholderTextColor={theme.colors.offWhite}
+                    style={[styles.textInput, {textAlignVertical: 'top'}]}
+                    onChangeText={e => onUpdateMarkerForm('description', e)}
+                    value={markerForm.description}
+                  />
+                </View>
               </View>
             </View>
 
             <View style={styles.colorContainer}>
-              <Text style={styles.markerTitleHeading}>Icon and color</Text>
+              <Text style={styles.markerTitleHeading}>Color</Text>
               <View style={styles.iconAndColorView}>
-                <View style={styles.staticBox}>
+                {/* <View style={styles.staticBox}>
                   <Icon
                     type="ionicon"
                     name="location-outline"
                     size={scale(20)}
                     color={theme.colors.white}
                   />
-                </View>
+                </View> */}
                 <View style={styles.colorBoxContainer}>
                   <FlatList
+                    showsHorizontalScrollIndicator={false}
                     data={paletteColors}
                     keyExtractor={(item, index) => index.toString()}
                     horizontal
@@ -592,10 +793,11 @@ export default function Home({navigation}: any) {
                 containerStyle={styles.phoneNumberContainer}
                 placeholderTextColor={theme.colors.offWhite}
                 style={styles.textInput}
-                onChangeText={setPhoneNumber}
-                value={phoneNumber}
+                onChangeText={e => onUpdateMarkerForm('phone', e)}
+                value={markerForm.phone}
+                keyboardType="phone-pad"
               />
-              <View style={styles.iconSelectionView}>
+              {/* <View style={styles.iconSelectionView}>
                 <TouchableOpacity style={styles.selectIcon}>
                   <Icon
                     type="font-awesome"
@@ -628,7 +830,7 @@ export default function Home({navigation}: any) {
                     color={theme.colors.white}
                   />
                 </TouchableOpacity>
-              </View>
+              </View> */}
             </View>
 
             <View style={styles.plusImagesView}>
@@ -643,17 +845,62 @@ export default function Home({navigation}: any) {
               </TouchableOpacity>
             </View>
 
-            <View style={styles.gpsView}>
+            <View style={[styles.gpsView, {width: '100%'}]}>
               <Text style={styles.GPScoordinates}>GPS coordinates</Text>
-              <View>
-                <Text style={styles.latLngText}>
-                  Latitude: {myPosition?.latitude?.toFixed(5)}
-                </Text>
-                <Text style={styles.latLngText}>
-                  Longitude: {myPosition?.longitude?.toFixed(5)}
-                </Text>
+              <View style={{width: '100%'}}>
+                <Table
+                  borderStyle={{
+                    borderWidth: 1,
+                    borderColor: theme.colors.white,
+                  }}>
+                  <Row
+                    data={['Latitude', 'Longitude']}
+                    style={{
+                      height: scale(40),
+                      backgroundColor: theme.colors.black,
+                    }}
+                    textStyle={[
+                      styles.latLngText,
+                      {
+                        color: theme.colors.white,
+                        margin: scale(6),
+                        fontWeight: 'bold',
+                      },
+                    ]}
+                  />
+                  <Rows
+                    data={markerForm.coordinates.map((item: LatLng) => [
+                      item?.latitude?.toFixed(5),
+                      item?.longitude?.toFixed(5),
+                    ])}
+                    textStyle={[
+                      styles.latLngText,
+                      {color: theme.colors.white, margin: scale(6)},
+                    ]}
+                  />
+                </Table>
                 <View style={styles.gpsViewinRow}>
-                  <TouchableOpacity style={styles.gpsViewinRowIcon}>
+                  <TouchableOpacity
+                    style={styles.gpsViewinRowIcon}
+                    onPress={() => {
+                      Clipboard.setStrings(
+                        markerForm.coordinates.map(
+                          (item: LatLng) =>
+                            `${item?.latitude?.toFixed(
+                              5,
+                            )}, ${item?.longitude?.toFixed(5)}`,
+                        ),
+                      );
+                      console.log(
+                        'coordinates:',
+                        markerForm.coordinates.map(
+                          (item: LatLng) =>
+                            `${item?.latitude?.toFixed(
+                              5,
+                            )}, ${item?.longitude?.toFixed(5)}`,
+                        ),
+                      );
+                    }}>
                     <Icon
                       type="material-community"
                       name="content-copy"
@@ -661,19 +908,19 @@ export default function Home({navigation}: any) {
                       color={theme.colors.white}
                     />
                   </TouchableOpacity>
-                  <TouchableOpacity style={styles.gpsViewinRowIcon}>
+                  {/* <TouchableOpacity style={styles.gpsViewinRowIcon}>
                     <Icon
                       type="entypo"
                       name="edit"
                       size={scale(20)}
                       color={theme.colors.white}
                     />
-                  </TouchableOpacity>
+                  </TouchableOpacity> */}
                 </View>
               </View>
             </View>
 
-            <View style={styles.creationDateView}>
+            {/* <View style={styles.creationDateView}>
               <Text style={styles.GPScoordinates}>Creation date</Text>
               <View style={styles.creationDateViewinRow}>
                 <TouchableOpacity
@@ -714,38 +961,43 @@ export default function Home({navigation}: any) {
                   />
                 </TouchableOpacity>
               </View>
-            </View>
+            </View> */}
 
             <View style={styles.extraInformation}>
               <Text style={styles.GPScoordinates}>Extra information</Text>
-              <Text style={styles.latLngText}>
-                Unnamed Road, Sharqpur, Pakistan
-              </Text>
+              <Text style={styles.latLngText}>{markerForm.extraInfo}</Text>
 
-              <TouchableOpacity style={styles.insertView}>
+              <TouchableOpacity
+                style={styles.insertView}
+                onPress={() => {
+                  onUpdateMarkerForm('description', markerForm.extraInfo);
+                  scrollRef.current?.scrollTo();
+                }}>
                 <Icon
                   type="material-community"
                   name="clipboard-outline"
                   size={scale(20)}
                   color={'white'}
                 />
-                <Text style={styles.latLngText}>Insert...</Text>
+                <Text style={styles.latLngText}>Insert in descrition</Text>
               </TouchableOpacity>
             </View>
-
           </ScrollView>
         </View>
       </Modal>
 
       {myPosition.latitude !== 0 && myPosition.longitude !== 0 && (
         <MapView
-          onPress={e => console.log('e:', e.nativeEvent.coordinate)}
+          onPress={e => {
+            console.log('e:', e.nativeEvent.coordinate);
+            setShowView(false);
+          }}
           ref={mapRef}
           // provider={PROVIDER_GOOGLE}
           onRegionChange={e => {
             // console.log('region change:', e);
             setCurrentPos(item => e);
-            updatePolygonCoordinate(e, true);
+            !showView && updatePolygonCoordinate(e, true);
           }}
           onRegionChangeComplete={e =>
             console.log('region change complete:', e)
@@ -770,10 +1022,10 @@ export default function Home({navigation}: any) {
           loadingEnabled={true}
           showsCompass={true}
           scrollEnabled={true}
-          //onTouchStart={e => console.log('e2:', e.nativeEvent)}
           zoomEnabled={true}
           pitchEnabled={true}
           rotateEnabled={true}>
+          {/* ..........Start Input Markers.......... */}
           {markerCoord && (
             <Marker
               style={{display: markerCoord ? 'flex' : 'none'}}
@@ -792,7 +1044,37 @@ export default function Home({navigation}: any) {
                 return (
                   <Marker
                     key={index}
-                    // style={{height: scale(15), width: scale(15)}}
+                    coordinate={{
+                      latitude: item.latitude,
+                      longitude: item.longitude,
+                    }}>
+                    <Image
+                      source={
+                        index === polygonIndex
+                          ? require('../../assets/images/markerSelected.png')
+                          : require('../../assets/images/markerUnselected.jpg')
+                      }
+                      style={[
+                        {height: scale(15), width: scale(15)},
+                        index === polygonIndex && {zIndex: 1},
+                      ]}
+                    />
+                  </Marker>
+                );
+              })}
+            </>
+          )}
+          {isMarker && isPoliLine && (
+            <>
+              <Polyline
+                coordinates={polygonCoordinates}
+                fillColor="rgba(0, 200, 0, 0.5)"
+                strokeWidth={2}
+              />
+              {polygonCoordinates.map((item, index) => {
+                return (
+                  <Marker
+                    key={index}
                     coordinate={{
                       latitude: parseFloat(item.latitude.toFixed(4)),
                       longitude: parseFloat(item.longitude.toFixed(4)),
@@ -813,6 +1095,7 @@ export default function Home({navigation}: any) {
               })}
             </>
           )}
+          {/* ..........End Input Markers.......... */}
         </MapView>
       )}
     </View>
