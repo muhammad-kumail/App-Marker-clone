@@ -30,36 +30,39 @@ export const deleteFile = fileName => {
   });
 };
 
-export const addMarker = marker => {
-  return new Promise(async (resolve, reject) => {
-    let userId = getCurrentUserId();
+export const addMarker = async marker => {
+  try {
+    const userId = await getCurrentUserId();
+    console.log('🚀 ~ addMarker ~ userId:', userId);
+
     if (userId) {
-      let markerId = uuid();
-      firestore()
-        .collection('markers')
-        .doc(markerId)
-        .set({
-          _id: markerId,
-          userId,
-          title: marker.title,
-          description: marker.description,
-          coordinates: marker.coordinates,
-          type: marker.type,
-          color: marker.color,
-          phone: marker.phone,
-          images: marker.images,
-          extraInfo: marker.extraInfo,
-          updatedAt: marker.updatedAt,
-        })
-        .then(res => {
-          resolve({result: res, message: 'Marker added Successfully'});
-        })
-        .catch(err => {
-          reject({result: err, message: 'Marker adding failed'});
-        });
-    } else reject({result: null, message: 'No user Logged in'});
-  });
+      const markerId = uuid();
+      firestore().collection('markers').doc(markerId).set({
+        _id: markerId,
+        userId,
+        title: marker.title,
+        description: marker.description,
+        coordinates: marker.coordinates,
+        type: marker.type,
+        color: marker.color,
+        phone: marker.phone,
+        images: marker.images,
+        extraInfo: marker.extraInfo,
+        updatedAt: marker.updatedAt,
+      });
+      return {
+        result: 'Marker added Successfully',
+        message: 'Marker added Successfully',
+      };
+    } else {
+      throw {result: null, message: 'No user Logged in'};
+    }
+  } catch (error) {
+    console.error('Error adding marker:', error?.message);
+    throw {result: error, message: 'Marker adding failed'};
+  }
 };
+
 export const editMarker = marker => {
   return new Promise((resolve, reject) => {
     let userId = getCurrentUserId();
@@ -83,6 +86,7 @@ export const editMarker = marker => {
     }
   });
 };
+
 export const deleteMarker = markerId => {
   return new Promise((resolve, reject) => {
     let userId = getCurrentUserId();

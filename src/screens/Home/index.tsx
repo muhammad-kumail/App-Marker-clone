@@ -1,5 +1,7 @@
 import {
+  Animated,
   Dimensions,
+  Easing,
   FlatList,
   Image,
   Linking,
@@ -95,6 +97,7 @@ export default function Home({navigation}: any) {
     extraInfo: '',
     updatedAt: new Date(),
   });
+
   const validate = () => {
     if (
       !markerForm.title ||
@@ -251,6 +254,7 @@ export default function Home({navigation}: any) {
     '#e67e22',
     '#7f8c8d',
   ];
+
   const getUniqueMarkerName = async () => {
     try {
       const markersSnapshot = await firestore().collection('markers').get();
@@ -307,8 +311,9 @@ export default function Home({navigation}: any) {
   useEffect(() => {
     showView && getAddressFromCoordinates(markerForm.coordinates[0]);
   }, [showView]);
-  const handleSubmit = () => {
-    if (!validate) {
+
+  const handleSubmit = async () => {
+    if (!validate()) {
       Alert.alert('Failed', 'Title, Color & Coordinates should not be empty');
     } else {
       if (markerForm._id) {
@@ -334,6 +339,25 @@ export default function Home({navigation}: any) {
       }
     }
   };
+
+  const bounceAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (isModalVisible) {
+      Animated.spring(bounceAnim, {
+        toValue: 1,
+        friction: 4,
+        useNativeDriver: true,
+      }).start();
+    } else {
+      Animated.timing(bounceAnim, {
+        toValue: 0,
+        duration: 300,
+        easing: Easing.bounce,
+        useNativeDriver: true,
+      }).start();
+    }
+  }, [isModalVisible, bounceAnim]);
 
   return (
     <View style={[globalStyles.container]}>
@@ -726,11 +750,12 @@ export default function Home({navigation}: any) {
         </View>
       )}
 
-      <Modal
-        isVisible={isModalVisible}
-        // onBackdropPress={toggleModal}
-        hasBackdrop={false}>
-        <View style={styles.modalContainer}>
+      {isModalVisible && (
+        <Animated.View
+          style={[
+            styles.modalContainer,
+            {zIndex: 1, position: 'absolute', alignSelf: 'center', transform: [{ scale: bounceAnim }],}
+          ]}>
           <ScrollView
             ref={scrollRef}
             contentContainerStyle={styles.scrollContentContainer}
@@ -767,13 +792,13 @@ export default function Home({navigation}: any) {
               <Text style={styles.markerTitleHeading}>Color</Text>
               <View style={styles.iconAndColorView}>
                 {/* <View style={styles.staticBox}>
-                  <Icon
-                    type="ionicon"
-                    name="location-outline"
-                    size={scale(20)}
-                    color={theme.colors.white}
-                  />
-                </View> */}
+                <Icon
+                  type="ionicon"
+                  name="location-outline"
+                  size={scale(20)}
+                  color={theme.colors.white}
+                />
+              </View> */}
                 <View style={styles.colorBoxContainer}>
                   <FlatList
                     showsHorizontalScrollIndicator={false}
@@ -798,39 +823,39 @@ export default function Home({navigation}: any) {
                 keyboardType="phone-pad"
               />
               {/* <View style={styles.iconSelectionView}>
-                <TouchableOpacity style={styles.selectIcon}>
-                  <Icon
-                    type="font-awesome"
-                    name="phone"
-                    size={scale(20)}
-                    color={theme.colors.white}
-                  />
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.selectIcon}>
-                  <Icon
-                    type="material"
-                    name="dialpad"
-                    size={scale(20)}
-                    color={theme.colors.white}
-                  />
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.selectIcon}>
-                  <Icon
-                    type="material-community"
-                    name="message-processing-outline"
-                    size={scale(20)}
-                    color={theme.colors.white}
-                  />
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.selectIcon}>
-                  <Icon
-                    type="material-community"
-                    name="content-copy"
-                    size={scale(20)}
-                    color={theme.colors.white}
-                  />
-                </TouchableOpacity>
-              </View> */}
+              <TouchableOpacity style={styles.selectIcon}>
+                <Icon
+                  type="font-awesome"
+                  name="phone"
+                  size={scale(20)}
+                  color={theme.colors.white}
+                />
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.selectIcon}>
+                <Icon
+                  type="material"
+                  name="dialpad"
+                  size={scale(20)}
+                  color={theme.colors.white}
+                />
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.selectIcon}>
+                <Icon
+                  type="material-community"
+                  name="message-processing-outline"
+                  size={scale(20)}
+                  color={theme.colors.white}
+                />
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.selectIcon}>
+                <Icon
+                  type="material-community"
+                  name="content-copy"
+                  size={scale(20)}
+                  color={theme.colors.white}
+                />
+              </TouchableOpacity>
+            </View> */}
             </View>
 
             <View style={styles.plusImagesView}>
@@ -909,59 +934,59 @@ export default function Home({navigation}: any) {
                     />
                   </TouchableOpacity>
                   {/* <TouchableOpacity style={styles.gpsViewinRowIcon}>
-                    <Icon
-                      type="entypo"
-                      name="edit"
-                      size={scale(20)}
-                      color={theme.colors.white}
-                    />
-                  </TouchableOpacity> */}
+                  <Icon
+                    type="entypo"
+                    name="edit"
+                    size={scale(20)}
+                    color={theme.colors.white}
+                  />
+                </TouchableOpacity> */}
                 </View>
               </View>
             </View>
 
             {/* <View style={styles.creationDateView}>
-              <Text style={styles.GPScoordinates}>Creation date</Text>
-              <View style={styles.creationDateViewinRow}>
-                <TouchableOpacity
-                  style={styles.dateTimePicker}
-                  onPress={showDatePicker}>
-                  <Icon
-                    type="material-community"
-                    name="calendar-outline"
-                    size={scale(20)}
-                    color={'white'}
-                  />
-                  <Text style={styles.latLngText}>{selectedDate}</Text>
-                  <DateTimePickerModal
-                    isVisible={isDatePickerVisible}
-                    mode="date"
-                    is24Hour={false}
-                    onConfirm={handleConfirm}
-                    onCancel={hideDatePicker}
-                  />
-                </TouchableOpacity>
+            <Text style={styles.GPScoordinates}>Creation date</Text>
+            <View style={styles.creationDateViewinRow}>
+              <TouchableOpacity
+                style={styles.dateTimePicker}
+                onPress={showDatePicker}>
+                <Icon
+                  type="material-community"
+                  name="calendar-outline"
+                  size={scale(20)}
+                  color={'white'}
+                />
+                <Text style={styles.latLngText}>{selectedDate}</Text>
+                <DateTimePickerModal
+                  isVisible={isDatePickerVisible}
+                  mode="date"
+                  is24Hour={false}
+                  onConfirm={handleConfirm}
+                  onCancel={hideDatePicker}
+                />
+              </TouchableOpacity>
 
-                <TouchableOpacity
-                  style={styles.dateTimePicker}
-                  onPress={showTimePicker}>
-                  <Icon
-                    type="feather"
-                    name="clock"
-                    size={scale(20)}
-                    color={'white'}
-                  />
-                  <Text style={styles.latLngText}>{selectedTime}</Text>
-                  <DateTimePickerModal
-                    isVisible={isTimePickerVisible}
-                    mode="time"
-                    is24Hour={false}
-                    onConfirm={handleConfirmTwo}
-                    onCancel={hideTimePicker}
-                  />
-                </TouchableOpacity>
-              </View>
-            </View> */}
+              <TouchableOpacity
+                style={styles.dateTimePicker}
+                onPress={showTimePicker}>
+                <Icon
+                  type="feather"
+                  name="clock"
+                  size={scale(20)}
+                  color={'white'}
+                />
+                <Text style={styles.latLngText}>{selectedTime}</Text>
+                <DateTimePickerModal
+                  isVisible={isTimePickerVisible}
+                  mode="time"
+                  is24Hour={false}
+                  onConfirm={handleConfirmTwo}
+                  onCancel={hideTimePicker}
+                />
+              </TouchableOpacity>
+            </View>
+          </View> */}
 
             <View style={styles.extraInformation}>
               <Text style={styles.GPScoordinates}>Extra information</Text>
@@ -983,8 +1008,8 @@ export default function Home({navigation}: any) {
               </TouchableOpacity>
             </View>
           </ScrollView>
-        </View>
-      </Modal>
+        </Animated.View>
+      )}
 
       {myPosition.latitude !== 0 && myPosition.longitude !== 0 && (
         <MapView

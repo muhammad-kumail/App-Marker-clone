@@ -117,10 +117,8 @@ export const styles = StyleSheet.create({
   },
   modalContainer: {
     width: normalized.width(95),
-    height:
-      Platform.OS === 'ios' ? normalized.height(80) : normalized.height(85),
-    marginTop:
-      Platform.OS === 'ios' ? normalized.height(11) : normalized.height(5),
+    height: normalized.height(85),
+    marginVertical: normalized.height(10),
     justifyContent: 'flex-start',
     alignItems: 'center',
     alignSelf: 'center',
