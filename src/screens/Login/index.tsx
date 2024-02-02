@@ -22,7 +22,7 @@ import {
   signIn,
 } from '../../services/firebase/authentication';
 import {errorHandler} from '../../utils/helper';
-import {useDispatch} from 'react-redux';
+import {useDispatch, useSelector} from 'react-redux';
 import {setToken, setUser} from '../../redux/reducer';
 import Dialog from 'react-native-dialog';
 

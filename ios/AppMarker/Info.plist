@@ -31,6 +31,10 @@
 		<key>NSAllowsLocalNetworking</key>
 		<true/>
 	</dict>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>We need access to your photo library to allow you to select images for upload</string>
+	<key>NSCameraUsageDescription</key>
+	<string>We need access to your camera to take photos for uploading</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
 	<string>Allow App Marker to access your location both when the app is in use and in the background. This is essential for features like geofencing and continuous location tracking</string>
 	<key>NSLocationAlwaysUsageDescription</key>

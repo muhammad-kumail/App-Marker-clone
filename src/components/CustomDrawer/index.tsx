@@ -1,5 +1,5 @@
 import {ScrollView, StyleSheet, View} from 'react-native';
-import React, {useState} from 'react';
+import React, {useEffect, useRef, useState} from 'react';
 import theme, {scale} from '../../theme';
 import {Icon} from 'react-native-elements';
 import CustomText from '../CustomText';
@@ -7,13 +7,31 @@ import {DrawerItem} from '..';
 import {useDispatch, useSelector} from 'react-redux';
 import {signOut} from '../../services/firebase/authentication';
 import {setToken} from '../../redux/reducer';
+import {getAllMarkersTitles} from '../../services/firebase/firestore/index';
+import { setMarkerNames } from '../../redux/extraReducer';
 
 export default function CustomDrawer({navigation}: any) {
   const [isSelect, setIsSelect] = useState<boolean>(false);
   const [isFolder1, setIsFolder1] = useState<boolean>(false);
   const [isFolder2, setIsFolder2] = useState<boolean>(false);
+  const markerRef = useRef(0);
   const dispatch = useDispatch();
-  const user = useSelector((state: any) => state.user);
+  const user = useSelector((state: any) => state.auth.user);
+  const markerLen = useSelector((state: any) => state?.map?.markersLength);
+  console.log("🚀 ~ CustomDrawer ~ markerLen:", markerLen);
+
+  useEffect(() => {
+    getAllMarkersTitles()
+      .then(titles => {
+         markerRef.current = titles?.length;
+         dispatch(setMarkerNames(titles));
+        //console.log('Markers titles:', titles);
+      })
+      .catch(error => {
+        console.error('Error:', error?.message);
+      });
+  }, []);
+
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
       <DrawerItem
@@ -69,7 +87,7 @@ export default function CustomDrawer({navigation}: any) {
           Folders
         </CustomText>
       </View>
-      <DrawerItem
+      {/* <DrawerItem
         icon={
           <Icon
             name="select-all"
@@ -87,7 +105,7 @@ export default function CustomDrawer({navigation}: any) {
           setIsFolder2(!isSelect);
         }}
         isSelected={isSelect}
-      />
+      /> */}
       <DrawerItem
         icon={
           <Icon
@@ -98,12 +116,12 @@ export default function CustomDrawer({navigation}: any) {
           />
         }
         style={{borderBottomWidth: 0}}
-        title="Default folders"
-        description="6 markers"
+        title="Markers"
+        description={`${markerRef.current} markers`}
         onPress={() => setIsFolder1(!isFolder1)}
         isSelected={isFolder1}
       />
-      <DrawerItem
+      {/* <DrawerItem
         icon={
           <Icon
             name="folder-marker"
@@ -117,8 +135,8 @@ export default function CustomDrawer({navigation}: any) {
         description="1 markers"
         onPress={() => setIsFolder2(!isFolder2)}
         isSelected={isFolder2}
-      />
-      <DrawerItem
+      /> */}
+      {/* <DrawerItem
         icon={
           <Icon
             name="folder-add"
@@ -133,7 +151,8 @@ export default function CustomDrawer({navigation}: any) {
         }}
         title="Add folder"
         onPress={() => console.log('third')}
-      />
+      /> */}
+
       <View style={styles.titleView}>
         <CustomText style={{fontSize: theme.fontSizes.medium}}>
           Help & Feedback

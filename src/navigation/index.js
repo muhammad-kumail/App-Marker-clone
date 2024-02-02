@@ -9,8 +9,9 @@ import {useSelector} from 'react-redux';
 
 const Stack = createNativeStackNavigator();
 const Drawer = createDrawerNavigator();
+
 export default function Navigation() {
-  const token = useSelector(state => state.token);
+  const token = useSelector(state => state.auth.token);
   console.log('🚀 ~ file: index.js:14 ~ Navigation ~ token:', token);
   return (
     <NavigationContainer theme={DarkTheme}>

@@ -117,11 +117,13 @@ export const styles = StyleSheet.create({
   },
   modalContainer: {
     width: normalized.width(95),
-    height: normalized.height(85),
-    marginVertical: normalized.height(10),
+    height: scale(613),
     justifyContent: 'flex-start',
     alignItems: 'center',
     alignSelf: 'center',
+    position: 'absolute',
+    zIndex: 1,
+    marginVertical: scale(70),
     backgroundColor: theme.colors.transparentBlack,
   },
   scrollContentContainer: {
@@ -221,6 +223,9 @@ export const styles = StyleSheet.create({
   selectIcon: {
     justifyContent: 'center',
     alignItems: 'center',
+    alignSelf: 'center',
+    marginHorizontal: scale(5),
+    marginLeft: scale(0),
     width: scale(50),
     height: scale(50),
     borderRadius: scale(5),
@@ -232,6 +237,37 @@ export const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'flex-start',
     gap: scale(10),
+    width: normalized.width(85),
+    //backgroundColor: 'blue',
+  },
+  handleCrossIconView: {
+    paddingVertical: scale(9),
+    justifyContent: 'center',
+  },
+  handleCrossIconViewTwo: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  imageCard: {
+    width: scale(70),
+    height: scale(65),
+    flex: 1,
+    borderWidth: 0.5,
+    borderRadius: scale(5),
+  },
+  imageFromGallary: {
+    flex: 1,
+    width: '100%',
+    resizeMode: 'cover',
+    borderRadius: scale(5),
+  },
+  removeIcon: {
+    // width: scale(15),
+    // height: scale(15),
+    marginLeft: scale(-10),
+    marginTop: scale(-8),
+    borderRadius: scale(100),
+    backgroundColor: theme.colors.red,
   },
   gpsView: {
     justifyContent: 'center',
