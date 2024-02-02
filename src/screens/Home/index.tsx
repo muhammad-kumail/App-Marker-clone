@@ -1,11 +1,16 @@
 import {
+  Animated,
   Dimensions,
+  Easing,
   FlatList,
   Image,
+  Keyboard,
+  KeyboardAvoidingView,
   Linking,
   Platform,
   Pressable,
   ScrollView,
+  SectionList,
   StyleSheet,
   TouchableOpacity,
   View,
@@ -27,6 +32,7 @@ import MapView, {
 import MapViewDirections from 'react-native-maps-directions';
 import Geolocation from '@react-native-community/geolocation';
 import Clipboard from '@react-native-clipboard/clipboard';
+import ImagePicker from 'react-native-image-crop-picker';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import Modal from 'react-native-modal';
 import auth from '@react-native-firebase/auth';
@@ -36,7 +42,11 @@ import {setUser} from '../../redux/reducer';
 import {SvgXml} from 'react-native-svg';
 import {calebrateMarker} from '../../assets/svgs';
 import {TextInput} from '../../components/index';
-import {addMarker, editMarker} from '../../services/firebase/firestore';
+import {
+  addMarker,
+  editMarker,
+  uploadFile,
+} from '../../services/firebase/firestore';
 //@ts-ignore
 import {Table, Row, Rows} from 'react-native-table-component';
 import Geocoder from 'react-native-geocoding';
@@ -44,6 +54,7 @@ import {mapApiKey} from '../../utils/constants';
 import {capitalize} from '../../utils/helper';
 import {Alert} from 'react-native';
 import firestore from '@react-native-firebase/firestore';
+import ShowImages from '../../components/ShowImages/index';
 
 interface MarkerForm {
   _id: string;
@@ -61,8 +72,8 @@ interface MarkerForm {
 export default function Home({navigation}: any) {
   // console.log('🚀 ~ file: index.tsx:18 ~ Home ~ token:', token);
   const dispatch = useDispatch();
-  const token = useSelector((state: any) => state.token);
-  const user = useSelector((state: any) => state.user);
+  const token = useSelector((state: any) => state.auth.token);
+  const user = useSelector((state: any) => state.auth.user);
   const mapRef = useRef<MapView>(null);
   const scrollRef = useRef<ScrollView>(null);
   const {width, height} = Dimensions.get('window');
@@ -75,6 +86,12 @@ export default function Home({navigation}: any) {
   const [isPoligon, setIsPoligon] = useState<boolean>(false);
   const [isPoliLine, setIsPoliLine] = useState<boolean>(false);
   const [polygonIndex, setpolygonIndex] = useState<number>(0);
+  const [isImageViewVisible, setImageViewVisible] = useState<boolean>(false);
+  const [selectedImageIndex, setSelectedImageIndex] = useState<number>(0);
+  const [isSectionListVisible, setIsSectionListVisible] =
+    useState<boolean>(false);
+  const [downloadUrls, setDownloadUrls] = useState<string>([]);
+  const [uploadedImages, setUploadedImages] = useState<string>([]);
   const [markerTitle, setMarkerTitle] = useState<string>('');
   const [description, setDescription] = useState<string>('');
   const [selectedColor, setSelectedColor] = useState<string>('#3498db');
@@ -95,18 +112,33 @@ export default function Home({navigation}: any) {
     extraInfo: '',
     updatedAt: new Date(),
   });
-  const validate = () => {
-    if (
-      !markerForm.title ||
-      !markerForm.color ||
-      markerForm.coordinates.length == 0 ||
-      !markerForm.type
-    ) {
-      return false;
+
+  const validate = async () => {
+    await uploadImagesToFireStore(); // Wait for image upload to complete
+  
+    // Check if downloadUrls are available for all images
+    const allImagesUploaded = downloadUrls?.every(url => url !== undefined);
+    console.log("🚀 ~ validate ~ allImagesUploaded:", allImagesUploaded)
+  
+    if (allImagesUploaded) {
+      if (
+        !markerForm.title ||
+        !markerForm.color ||
+        markerForm.coordinates.length === 0 ||
+        !markerForm.type
+      ) {
+        console.log('Not all required fields are filled in');
+        return false;
+      } else {
+        console.log('All required fields are filled in and images are uploaded');
+        return true;
+      }
     } else {
-      return true;
+      // Handle case where not all images were uploaded successfully
+      console.error('Not all images were uploaded successfully');
+      return false;
     }
-  };
+  };  
 
   const [currentpos, setCurrentPos] = useState({
     latitude: 0,
@@ -141,6 +173,7 @@ export default function Home({navigation}: any) {
         longitudeDelta: 0.1 * (width / height),
       });
     });
+
     const wId = Geolocation.watchPosition(
       position => {
         const {latitude, longitude} = position.coords;
@@ -176,6 +209,7 @@ export default function Home({navigation}: any) {
     setPolygonCoordinates(polygon);
     !isEdit && setpolygonIndex(polygonIndex + 1);
   };
+
   const removePolygonCoordinate = () => {
     let polygon = [...polygonCoordinates];
     if (polygonCoordinates.length > 1) {
@@ -187,6 +221,7 @@ export default function Home({navigation}: any) {
 
     setPolygonCoordinates(polygon);
   };
+
   const changePolygonIndex = (isAdd: string = 'inc') => {
     if (isAdd === 'inc') {
       let newIndex = (polygonIndex + 1) % polygonCoordinates.length;
@@ -251,9 +286,14 @@ export default function Home({navigation}: any) {
     '#e67e22',
     '#7f8c8d',
   ];
+
   const getUniqueMarkerName = async () => {
     try {
-      const markersSnapshot = await firestore().collection('markers').get();
+      const markersSnapshot = await firestore()
+        .collection('markers')
+        .where('user', '==', user.uid)
+        .get();
+
       const existingNames = markersSnapshot.docs.map(doc => doc.data().title);
 
       let baseName = 'marker';
@@ -285,12 +325,14 @@ export default function Home({navigation}: any) {
       ]}
     />
   );
+
   const onUpdateMarkerForm = (name: string, value: string | object | Date) => {
     setMarkerForm(prevState => ({
       ...prevState,
       [name]: value,
     }));
   };
+
   const getAddressFromCoordinates = (coord: Region) => {
     Geocoder.from({
       latitude: coord?.latitude,
@@ -307,9 +349,42 @@ export default function Home({navigation}: any) {
   useEffect(() => {
     showView && getAddressFromCoordinates(markerForm.coordinates[0]);
   }, [showView]);
-  const handleSubmit = () => {
-    if (!validate) {
-      Alert.alert('Failed', 'Title, Color & Coordinates should not be empty');
+
+  const uploadImagesToFireStore = async () => {
+    try {
+      const newUploadedImages = await Promise.all(
+        markerForm?.images.map(async (image, index) => {
+          const fileUri = image?.path;
+          const fileNameWithoutExtension = fileUri?.substring(
+            fileUri.lastIndexOf('/') + 1,
+          );
+          const fileName = fileNameWithoutExtension?.split('.')[0];
+
+          if (fileUri && fileName && !uploadedImages.includes(fileName)) {
+            const downloadUrl = await uploadFile(fileUri, fileName, (progress) => {
+              console.log(`Upload progress: ${progress}%`);
+            });
+
+            setDownloadUrls(prevUrls => [...prevUrls, downloadUrl]);
+            setUploadedImages(prevUploadedImages => [...prevUploadedImages, fileName]);
+
+            return { path: downloadUrl };
+          } else {
+            return { path: image?.downloadUrl || image?.path }; // Already uploaded, use existing URL
+          }
+        }),
+      );
+    } catch (error) {
+      console.error('Error uploading images:', error);
+    }
+  };
+
+  const handleSubmit = async () => {
+    if (!validate()) {
+      Alert.alert(
+        'Failed',
+        'Title, Color, Images & Coordinates should not be empty',
+      );
     } else {
       if (markerForm._id) {
         editMarker(markerForm)
@@ -334,6 +409,170 @@ export default function Home({navigation}: any) {
       }
     }
   };
+
+  // Keyboard Scrolling Functions Start
+  const handleKeyboardShow = () => {
+    scrollRef?.current?.scrollToEnd();
+  };
+
+  const handleKeyboardHide = () => {
+    scrollRef?.current?.scrollTo({y: 0, animated: true});
+  };
+
+  useEffect(() => {
+    const keyboardDidShowListener = Keyboard.addListener(
+      'keyboardDidShow',
+      handleKeyboardShow,
+    );
+    const keyboardDidHideListener = Keyboard.addListener(
+      'keyboardDidHide',
+      handleKeyboardHide,
+    );
+
+    return () => {
+      keyboardDidShowListener.remove();
+      keyboardDidHideListener.remove();
+    };
+  }, []);
+  // End
+
+  // Animation Function of View start
+  const bounceAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (isModalVisible) {
+      Animated.spring(bounceAnim, {
+        toValue: 1,
+        friction: 4,
+        useNativeDriver: true,
+      }).start();
+    } else {
+      Animated.timing(bounceAnim, {
+        toValue: 0,
+        duration: 300,
+        easing: Easing.bounce,
+        useNativeDriver: true,
+      }).start();
+    }
+  }, [isModalVisible, bounceAnim]);
+  // End
+
+  // Open Gallery Function Start
+  const openGallery = async () => {
+    try {
+      const image = await ImagePicker.openPicker({
+        width: 400,
+        height: 400,
+        cropping: true,
+      });
+
+      const updatedImages = [...(markerForm.images || []), image];
+      console.log(updatedImages);
+
+      onUpdateMarkerForm('images', updatedImages);
+    } catch (error) {
+      console.log('error in open gallery', error);
+    }
+  };
+  // End
+
+  // Show Gallery Image
+  const renderSelectedImages = () => {
+    return markerForm?.images?.map((image, index) => (
+      <View key={index} style={styles.handleCrossIconView}>
+        <View style={styles.handleCrossIconViewTwo}>
+          <TouchableOpacity
+            style={styles.imageCard}
+            onPress={() => {
+              setSelectedImageIndex(index);
+              setImageViewVisible(true);
+            }}>
+            <Image
+              source={{ uri: downloadUrls[index] || image?.path }}
+              style={styles.imageFromGallary}
+            />
+            <ShowImages
+              visible={isImageViewVisible}
+              data={markerForm.images?.map((item, i) => downloadUrls[i] || item?.path)}
+              currentIndex={selectedImageIndex}
+              onClose={() => setImageViewVisible(false)}
+            />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.removeIcon}
+            onPress={() => removeImage(index)}>
+            <Icon
+              type="entypo"
+              name="cross"
+              size={scale(15)}
+              color={theme.colors.white}
+            />
+          </TouchableOpacity>
+        </View>
+      </View>
+    ));
+  };
+  
+  // End
+
+  // Remove Gallery Image
+  const removeImage = async (indexToRemove: number) => {
+    const updatedImages = markerForm.images.filter(
+      (_, index) => index !== indexToRemove,
+    );
+    onUpdateMarkerForm('images', updatedImages);
+  };
+  // End
+
+  // Open Camera Function
+  const openCamera = async () => {
+    try {
+      const image = await ImagePicker.openCamera({
+        width: 400,
+        height: 400,
+        cropping: true,
+      });
+      //console.log(image);
+      onUpdateMarkerForm('images', [...markerForm.images, image]);
+    } catch (error) {
+      console.log('error in open camera', error);
+    }
+  };
+  // End
+
+  const showAlertWithTwoFunctions = () => {
+    Alert.alert('Select an Option', '\nChoose an option to proceed:', [
+      {
+        text: 'Open Gallery',
+        onPress: () => {
+          openGallery();
+          //console.log('openGallery Pressed');
+        },
+      },
+      {
+        text: 'Open Camera',
+        onPress: () => {
+          openCamera();
+          //console.log('openCamera Pressed');
+        },
+      },
+    ]);
+  };
+
+  // Toggle Section list
+  const toggleSectionList = () => {
+    setIsSectionListVisible(!isSectionListVisible);
+  };
+
+  const markerLen = useSelector((state: any) => state?.map?.markersLength);
+
+  const sections = [
+    {
+      title: 'Your Markers',
+      data: markerLen,
+    },
+  ];
 
   return (
     <View style={[globalStyles.container]}>
@@ -361,10 +600,22 @@ export default function Home({navigation}: any) {
                   isModalVisible ? toggleModal() : navigation.openDrawer();
                 }}
               />
-              <MainIcon
-                name={isModalVisible ? 'folder' : 'filter-sharp'}
-                type={isModalVisible ? 'font-awesome' : 'ionicon'}
-              />
+              <TouchableOpacity onPress={toggleSectionList}>
+                <MainIcon
+                  name={isModalVisible ? 'folder' : 'filter-sharp'}
+                  type={isModalVisible ? 'font-awesome' : 'ionicon'}
+                />
+              </TouchableOpacity>
+              {isSectionListVisible && (
+                <SectionList
+                  sections={sections}
+                  keyExtractor={(item, index) => item + index}
+                  renderItem={({item}) => <Text>{item}</Text>}
+                  renderSectionHeader={({section: {title}}) => (
+                    <Text style={{fontWeight: 'bold'}}>{title}</Text>
+                  )}
+                />
+              )}
               {isModalVisible ? (
                 <Text style={isModalVisible && {flex: 1}}>
                   {capitalize('markers')}
@@ -726,12 +977,16 @@ export default function Home({navigation}: any) {
         </View>
       )}
 
-      <Modal
-        isVisible={isModalVisible}
-        // onBackdropPress={toggleModal}
-        hasBackdrop={false}>
-        <View style={styles.modalContainer}>
+      {isModalVisible && (
+        <Animated.View
+          style={[
+            styles.modalContainer,
+            {
+              transform: [{scale: bounceAnim}],
+            },
+          ]}>
           <ScrollView
+            keyboardShouldPersistTaps={markerForm.phone ? 'handled' : 'never'}
             ref={scrollRef}
             contentContainerStyle={styles.scrollContentContainer}
             showsVerticalScrollIndicator={false}>
@@ -767,13 +1022,13 @@ export default function Home({navigation}: any) {
               <Text style={styles.markerTitleHeading}>Color</Text>
               <View style={styles.iconAndColorView}>
                 {/* <View style={styles.staticBox}>
-                  <Icon
-                    type="ionicon"
-                    name="location-outline"
-                    size={scale(20)}
-                    color={theme.colors.white}
-                  />
-                </View> */}
+                <Icon
+                  type="ionicon"
+                  name="location-outline"
+                  size={scale(20)}
+                  color={theme.colors.white}
+                />
+              </View> */}
                 <View style={styles.colorBoxContainer}>
                   <FlatList
                     showsHorizontalScrollIndicator={false}
@@ -796,53 +1051,69 @@ export default function Home({navigation}: any) {
                 onChangeText={e => onUpdateMarkerForm('phone', e)}
                 value={markerForm.phone}
                 keyboardType="phone-pad"
+                onFocus={() => {
+                  // Scroll to the phone number input when it gets focus
+                  scrollRef.current?.scrollToEnd();
+                }}
               />
               {/* <View style={styles.iconSelectionView}>
-                <TouchableOpacity style={styles.selectIcon}>
-                  <Icon
-                    type="font-awesome"
-                    name="phone"
-                    size={scale(20)}
-                    color={theme.colors.white}
-                  />
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.selectIcon}>
-                  <Icon
-                    type="material"
-                    name="dialpad"
-                    size={scale(20)}
-                    color={theme.colors.white}
-                  />
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.selectIcon}>
-                  <Icon
-                    type="material-community"
-                    name="message-processing-outline"
-                    size={scale(20)}
-                    color={theme.colors.white}
-                  />
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.selectIcon}>
-                  <Icon
-                    type="material-community"
-                    name="content-copy"
-                    size={scale(20)}
-                    color={theme.colors.white}
-                  />
-                </TouchableOpacity>
-              </View> */}
-            </View>
-
-            <View style={styles.plusImagesView}>
-              <Text style={styles.markerTitleHeading}>Images</Text>
               <TouchableOpacity style={styles.selectIcon}>
                 <Icon
-                  type="entypo"
-                  name="plus"
+                  type="font-awesome"
+                  name="phone"
                   size={scale(20)}
                   color={theme.colors.white}
                 />
               </TouchableOpacity>
+              <TouchableOpacity style={styles.selectIcon}>
+                <Icon
+                  type="material"
+                  name="dialpad"
+                  size={scale(20)}
+                  color={theme.colors.white}
+                />
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.selectIcon}>
+                <Icon
+                  type="material-community"
+                  name="message-processing-outline"
+                  size={scale(20)}
+                  color={theme.colors.white}
+                />
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.selectIcon}>
+                <Icon
+                  type="material-community"
+                  name="content-copy"
+                  size={scale(20)}
+                  color={theme.colors.white}
+                />
+              </TouchableOpacity>
+            </View> */}
+            </View>
+
+            <View style={styles.plusImagesView}>
+              <Text style={styles.markerTitleHeading}>Images</Text>
+              <ScrollView horizontal>
+                {[0]?.map(index => {
+                  return (
+                    <TouchableOpacity
+                      style={styles.selectIcon}
+                      key={index}
+                      onPress={() => {
+                        showAlertWithTwoFunctions();
+                      }}>
+                      <Icon
+                        type="entypo"
+                        name="plus"
+                        size={scale(20)}
+                        color={theme.colors.white}
+                      />
+                    </TouchableOpacity>
+                  );
+                })}
+                {renderSelectedImages()}
+              </ScrollView>
             </View>
 
             <View style={[styles.gpsView, {width: '100%'}]}>
@@ -909,59 +1180,59 @@ export default function Home({navigation}: any) {
                     />
                   </TouchableOpacity>
                   {/* <TouchableOpacity style={styles.gpsViewinRowIcon}>
-                    <Icon
-                      type="entypo"
-                      name="edit"
-                      size={scale(20)}
-                      color={theme.colors.white}
-                    />
-                  </TouchableOpacity> */}
+                  <Icon
+                    type="entypo"
+                    name="edit"
+                    size={scale(20)}
+                    color={theme.colors.white}
+                  />
+                </TouchableOpacity> */}
                 </View>
               </View>
             </View>
 
             {/* <View style={styles.creationDateView}>
-              <Text style={styles.GPScoordinates}>Creation date</Text>
-              <View style={styles.creationDateViewinRow}>
-                <TouchableOpacity
-                  style={styles.dateTimePicker}
-                  onPress={showDatePicker}>
-                  <Icon
-                    type="material-community"
-                    name="calendar-outline"
-                    size={scale(20)}
-                    color={'white'}
-                  />
-                  <Text style={styles.latLngText}>{selectedDate}</Text>
-                  <DateTimePickerModal
-                    isVisible={isDatePickerVisible}
-                    mode="date"
-                    is24Hour={false}
-                    onConfirm={handleConfirm}
-                    onCancel={hideDatePicker}
-                  />
-                </TouchableOpacity>
+            <Text style={styles.GPScoordinates}>Creation date</Text>
+            <View style={styles.creationDateViewinRow}>
+              <TouchableOpacity
+                style={styles.dateTimePicker}
+                onPress={showDatePicker}>
+                <Icon
+                  type="material-community"
+                  name="calendar-outline"
+                  size={scale(20)}
+                  color={'white'}
+                />
+                <Text style={styles.latLngText}>{selectedDate}</Text>
+                <DateTimePickerModal
+                  isVisible={isDatePickerVisible}
+                  mode="date"
+                  is24Hour={false}
+                  onConfirm={handleConfirm}
+                  onCancel={hideDatePicker}
+                />
+              </TouchableOpacity>
 
-                <TouchableOpacity
-                  style={styles.dateTimePicker}
-                  onPress={showTimePicker}>
-                  <Icon
-                    type="feather"
-                    name="clock"
-                    size={scale(20)}
-                    color={'white'}
-                  />
-                  <Text style={styles.latLngText}>{selectedTime}</Text>
-                  <DateTimePickerModal
-                    isVisible={isTimePickerVisible}
-                    mode="time"
-                    is24Hour={false}
-                    onConfirm={handleConfirmTwo}
-                    onCancel={hideTimePicker}
-                  />
-                </TouchableOpacity>
-              </View>
-            </View> */}
+              <TouchableOpacity
+                style={styles.dateTimePicker}
+                onPress={showTimePicker}>
+                <Icon
+                  type="feather"
+                  name="clock"
+                  size={scale(20)}
+                  color={'white'}
+                />
+                <Text style={styles.latLngText}>{selectedTime}</Text>
+                <DateTimePickerModal
+                  isVisible={isTimePickerVisible}
+                  mode="time"
+                  is24Hour={false}
+                  onConfirm={handleConfirmTwo}
+                  onCancel={hideTimePicker}
+                />
+              </TouchableOpacity>
+            </View>
+          </View> */}
 
             <View style={styles.extraInformation}>
               <Text style={styles.GPScoordinates}>Extra information</Text>
@@ -983,8 +1254,8 @@ export default function Home({navigation}: any) {
               </TouchableOpacity>
             </View>
           </ScrollView>
-        </View>
-      </Modal>
+        </Animated.View>
+      )}
 
       {myPosition.latitude !== 0 && myPosition.longitude !== 0 && (
         <MapView

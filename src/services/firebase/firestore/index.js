@@ -7,10 +7,31 @@ import {getCurrentUserId} from '../authentication';
 import {Alert} from 'react-native';
 import {errorHandler} from '../../../utils/helper';
 
-export const uploadFile = async (fileUri, fileName) => {
+export const uploadFile = async (fileUri, fileName, onProgress) => {
   const reference = storage().ref(`marker/images/${fileName}`);
-  await reference.putFile(fileUri);
-  return reference.getDownloadURL();
+  const task = reference.putFile(fileUri);
+
+  const uploadTask = new Promise((resolve, reject) => {
+    task.on(
+      storage.TaskEvent.STATE_CHANGED,
+      snapshot => {
+        const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+        onProgress(progress);
+      },
+      error => {
+        reject(error);
+      },
+      () => {
+        reference.getDownloadURL().then(downloadURL => {
+          resolve(downloadURL);
+        }).catch(error => {
+          reject(error);
+        });
+      }
+    );
+  });
+
+  return uploadTask;
 };
 
 export const deleteFile = fileName => {
@@ -30,36 +51,60 @@ export const deleteFile = fileName => {
   });
 };
 
-export const addMarker = marker => {
-  return new Promise(async (resolve, reject) => {
-    let userId = getCurrentUserId();
+export const addMarker = async marker => {
+  console.log('marker images >>>>>>>>>>.', marker.images);
+  try {
+    const userId = await getCurrentUserId();
+    console.log('🚀 ~ addMarker ~ userId:', userId);
+
     if (userId) {
-      let markerId = uuid();
-      firestore()
-        .collection('markers')
-        .doc(markerId)
-        .set({
-          _id: markerId,
-          userId,
-          title: marker.title,
-          description: marker.description,
-          coordinates: marker.coordinates,
-          type: marker.type,
-          color: marker.color,
-          phone: marker.phone,
-          images: marker.images,
-          extraInfo: marker.extraInfo,
-          updatedAt: marker.updatedAt,
-        })
-        .then(res => {
-          resolve({result: res, message: 'Marker added Successfully'});
-        })
-        .catch(err => {
-          reject({result: err, message: 'Marker adding failed'});
-        });
-    } else reject({result: null, message: 'No user Logged in'});
-  });
+      const markerId = uuid();
+      firestore().collection('markers').doc(markerId).set({
+        _id: markerId,
+        userId,
+        title: marker.title,
+        description: marker.description,
+        coordinates: marker.coordinates,
+        type: marker.type,
+        color: marker.color,
+        phone: marker.phone,
+        images: marker.images,
+        extraInfo: marker.extraInfo,
+        updatedAt: marker.updatedAt,
+      });
+      return {
+        result: 'Marker added Successfully',
+        message: 'Marker added Successfully',
+      };
+    } else {
+      throw {result: null, message: 'No user Logged in'};
+    }
+  } catch (error) {
+    console.error('Error adding marker:', error?.message);
+    throw {result: error, message: 'Marker adding failed'};
+  }
 };
+
+export const getAllMarkersTitles = async () => {
+  try {
+    const markersCollection = await firestore().collection('markers').get();
+
+    if (!markersCollection.empty) {
+      const titles = markersCollection?.docs?.map(doc => {
+        const markerData = doc?.data();
+        return markerData?.title;
+      });
+
+      return titles;
+    } else {
+      throw {result: null, message: 'No markers found'};
+    }
+  } catch (error) {
+    console.log('Error getting markers titles:', error?.message);
+    throw {result: error, message: 'Failed to get markers titles'};
+  }
+};
+
 export const editMarker = marker => {
   return new Promise((resolve, reject) => {
     let userId = getCurrentUserId();
@@ -83,6 +128,7 @@ export const editMarker = marker => {
     }
   });
 };
+
 export const deleteMarker = markerId => {
   return new Promise((resolve, reject) => {
     let userId = getCurrentUserId();

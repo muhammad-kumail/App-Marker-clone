@@ -2,6 +2,8 @@ import auth from '@react-native-firebase/auth';
 import firestore from '@react-native-firebase/firestore';
 import {Alert} from 'react-native';
 import {errorHandler} from '../../../utils/helper';
+
+
 export function signUp({email, password, firstName, lastName}) {
   return new Promise(async (resolve, reject) => {
     await auth()
@@ -34,7 +36,8 @@ export function signUp({email, password, firstName, lastName}) {
         reject({data: null, message: error.message, code: error.code});
       });
   });
-}
+};
+
 export function signIn({email, password}) {
   return new Promise(async (resolve, reject) => {
     await auth()
@@ -46,7 +49,8 @@ export function signIn({email, password}) {
         reject({data: null, message: error.message, code: error.code});
       });
   });
-}
+};
+
 export const onAuthStateChanged = onChange => {
   const unsubscribe = auth().onAuthStateChanged(user => {
     if (user) {
@@ -66,6 +70,7 @@ export const onAuthStateChanged = onChange => {
   // To unsubscribe the listener when it's no longer needed
   return unsubscribe;
 };
+
 export const getIdToken = async () => {
   try {
     const user = auth().currentUser;
@@ -87,6 +92,7 @@ export const getIdToken = async () => {
     });
   }
 };
+
 export const signOut = async () => {
   await auth()
     .signOut()
@@ -97,6 +103,7 @@ export const signOut = async () => {
       return Promise.reject({message: 'Error in signOut user'});
     });
 };
+
 export const sendEmailVerification = () => {
   const user = auth().currentUser;
   if (user) {
@@ -115,6 +122,7 @@ export const sendEmailVerification = () => {
     console.error('No user logged in');
   }
 };
+
 export const sendPasswordResetEmail = email => {
   return new Promise(async (resolve, reject) => {
     await auth()
@@ -130,7 +138,20 @@ export const sendPasswordResetEmail = email => {
       });
   });
 };
-export const getCurrentUserId = () => {
-  const user = auth().currentUser;
-  return user ? user?.uid : null;
+
+export const getCurrentUserId = async () => {
+  try {
+    const user = await auth().currentUser;
+
+    if (user && user.uid) {
+      // console.log('getCurrentUserId called in if', typeof user.uid, user.uid);
+      return user.uid;
+    } else {
+      console.log("User or user ID is null or undefined.");
+      return null;
+    }
+  } catch (error) {
+    console.log("Error in getCurrentUserId:", error);
+    return null;
+  }
 };
