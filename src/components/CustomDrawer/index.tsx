@@ -17,8 +17,8 @@ export default function CustomDrawer({navigation}: any) {
   const markerRef = useRef(0);
   const dispatch = useDispatch();
   const user = useSelector((state: any) => state.auth.user);
-  const markerLen = useSelector((state: any) => state?.map?.markersLength);
-  console.log("🚀 ~ CustomDrawer ~ markerLen:", markerLen);
+  const markerLen = useSelector((state: any) => state?.map?.markerNames);
+  //console.log("🚀 ~ CustomDrawer ~ markerNames:", markerLen);
 
   useEffect(() => {
     getAllMarkersTitles()
