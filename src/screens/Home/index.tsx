@@ -62,7 +62,8 @@ interface MarkerForm {
   description: string;
   color: string;
   coordinates: Region[];
-  images: string[]; // assuming images are an array of strings (URLs or paths)
+  images: string[];
+  downloadUrls: string[];
   phone: string;
   type: string;
   extraInfo: string;
@@ -90,8 +91,9 @@ export default function Home({navigation}: any) {
   const [selectedImageIndex, setSelectedImageIndex] = useState<number>(0);
   const [isSectionListVisible, setIsSectionListVisible] =
     useState<boolean>(false);
-  const [downloadUrls, setDownloadUrls] = useState<string>([]);
-  const [uploadedImages, setUploadedImages] = useState<string>([]);
+  //const [downloadUrls, setDownloadUrls] = useState<string[]>([]);
+  const [uploadedImages, setUploadedImages] = useState<string[]>([]);
+  const [dontAskAgain, setDontAskAgain] = useState<boolean>(false);
   const [markerTitle, setMarkerTitle] = useState<string>('');
   const [description, setDescription] = useState<string>('');
   const [selectedColor, setSelectedColor] = useState<string>('#3498db');
@@ -107,6 +109,7 @@ export default function Home({navigation}: any) {
     color: '',
     coordinates: [],
     images: [],
+    downloadUrls: [],
     phone: '',
     type: '',
     extraInfo: '',
@@ -114,28 +117,33 @@ export default function Home({navigation}: any) {
   });
 
   const validate = async () => {
-    await uploadImagesToFireStore(); // Wait for image upload to complete
+    try {
+      await uploadImagesToFireStore();
   
-    // Check if downloadUrls are available for all images
-    const allImagesUploaded = downloadUrls?.every(url => url !== undefined);
-    console.log("🚀 ~ validate ~ allImagesUploaded:", allImagesUploaded)
+      const allImagesUploaded = markerForm.downloadUrls.every(url => url !== undefined);
   
-    if (allImagesUploaded) {
-      if (
-        !markerForm.title ||
-        !markerForm.color ||
-        markerForm.coordinates.length === 0 ||
-        !markerForm.type
-      ) {
-        console.log('Not all required fields are filled in');
-        return false;
+      if (allImagesUploaded) {
+        if (
+          !markerForm.title ||
+          !markerForm.color ||
+          markerForm.coordinates.length === 0 ||
+          !markerForm.type
+        ) {
+          console.log('Not all required fields are filled in');
+          return false;
+        } else {
+          console.log(
+            'All required fields are filled in and images are uploaded',
+          );
+          return true;
+        }
       } else {
-        console.log('All required fields are filled in and images are uploaded');
-        return true;
+        // Handle case where not all images were uploaded successfully
+        console.error('Not all images were uploaded successfully');
+        return false;
       }
-    } else {
-      // Handle case where not all images were uploaded successfully
-      console.error('Not all images were uploaded successfully');
+    } catch (error) {
+      console.error('Error validating:', error);
       return false;
     }
   };  
@@ -352,7 +360,7 @@ export default function Home({navigation}: any) {
 
   const uploadImagesToFireStore = async () => {
     try {
-      const newUploadedImages = await Promise.all(
+      await Promise.all(
         markerForm?.images.map(async (image, index) => {
           const fileUri = image?.path;
           const fileNameWithoutExtension = fileUri?.substring(
@@ -361,26 +369,42 @@ export default function Home({navigation}: any) {
           const fileName = fileNameWithoutExtension?.split('.')[0];
 
           if (fileUri && fileName && !uploadedImages.includes(fileName)) {
-            const downloadUrl = await uploadFile(fileUri, fileName, (progress) => {
-              console.log(`Upload progress: ${progress}%`);
-            });
+            try {
+              const downloadUrl = await uploadFile(
+                fileUri,
+                fileName,
+                //@ts-ignore
+                progress => {
+                  console.log(`Upload progress >>>> ${progress}%`);
+                },
+              );
+              onUpdateMarkerForm('downloadUrls', [...markerForm.downloadUrls, downloadUrl]);
+              setUploadedImages(prevUploadedImages => [
+                ...prevUploadedImages,
+                fileName,
+              ]);
 
-            setDownloadUrls(prevUrls => [...prevUrls, downloadUrl]);
-            setUploadedImages(prevUploadedImages => [...prevUploadedImages, fileName]);
+             // console.log('Download URL:', downloadUrl);
 
-            return { path: downloadUrl };
+              return {path: downloadUrl};
+            } catch (error) {
+              console.error('Error uploading image:', error);
+              return {path: image?.downloadUrl || image?.path};
+            }
           } else {
-            return { path: image?.downloadUrl || image?.path }; // Already uploaded, use existing URL
+            return {path: image?.downloadUrl || image?.path};
           }
         }),
       );
     } catch (error) {
       console.error('Error uploading images:', error);
+      throw error;
     }
   };
 
   const handleSubmit = async () => {
-    if (!validate()) {
+    const isValid = await validate(); // Wait for validate function to complete
+    if (!isValid) {
       Alert.alert(
         'Failed',
         'Title, Color, Images & Coordinates should not be empty',
@@ -488,12 +512,16 @@ export default function Home({navigation}: any) {
               setImageViewVisible(true);
             }}>
             <Image
-              source={{ uri: downloadUrls[index] || image?.path }}
+            source={{
+              uri: markerForm.downloadUrls[index] || image?.downloadUrl || image?.path,
+            }}
               style={styles.imageFromGallary}
             />
             <ShowImages
               visible={isImageViewVisible}
-              data={markerForm.images?.map((item, i) => downloadUrls[i] || item?.path)}
+              data={markerForm.images?.map(
+                (item, i) => markerForm.downloadUrls[i] || item?.path,
+              )}
               currentIndex={selectedImageIndex}
               onClose={() => setImageViewVisible(false)}
             />
@@ -513,7 +541,7 @@ export default function Home({navigation}: any) {
       </View>
     ));
   };
-  
+
   // End
 
   // Remove Gallery Image

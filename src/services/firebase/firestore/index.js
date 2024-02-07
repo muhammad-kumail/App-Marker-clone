@@ -6,32 +6,32 @@ import {v4 as uuid} from 'uuid';
 import {getCurrentUserId} from '../authentication';
 import {Alert} from 'react-native';
 import {errorHandler} from '../../../utils/helper';
+import { useEffect } from 'react';
 
-export const uploadFile = async (fileUri, fileName, onProgress) => {
+export const uploadFile = (fileUri, fileName, onProgress) => {
   const reference = storage().ref(`marker/images/${fileName}`);
   const task = reference.putFile(fileUri);
 
-  const uploadTask = new Promise((resolve, reject) => {
+  return new Promise((resolve, reject) => {
     task.on(
       storage.TaskEvent.STATE_CHANGED,
       snapshot => {
-        const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+        const progress =
+          (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
         onProgress(progress);
       },
-      error => {
-        reject(error);
+      reject, // Reject on error
+      async () => {
+        try {
+          const downloadURL = await reference.getDownloadURL();
+          console.log('🚀 ~ downloadURL:', downloadURL);
+          resolve(downloadURL); // Resolve the promise with the download URL
+        } catch (error) {
+          reject(error); // Reject the promise on error
+        }
       },
-      () => {
-        reference.getDownloadURL().then(downloadURL => {
-          resolve(downloadURL);
-        }).catch(error => {
-          reject(error);
-        });
-      }
     );
   });
-
-  return uploadTask;
 };
 
 export const deleteFile = fileName => {
@@ -52,10 +52,10 @@ export const deleteFile = fileName => {
 };
 
 export const addMarker = async marker => {
-  console.log('marker images >>>>>>>>>>.', marker.images);
+  //console.log('marker images >>>>>>>>>>.', marker.downloadUrls);
   try {
     const userId = await getCurrentUserId();
-    console.log('🚀 ~ addMarker ~ userId:', userId);
+    //console.log('🚀 ~ addMarker ~ userId:', userId);
 
     if (userId) {
       const markerId = uuid();
@@ -68,10 +68,25 @@ export const addMarker = async marker => {
         type: marker.type,
         color: marker.color,
         phone: marker.phone,
-        images: marker.images,
+        // images: marker.images,
+        downloadUrls: marker.downloadUrls,
         extraInfo: marker.extraInfo,
         updatedAt: marker.updatedAt,
       });
+      console.log(
+        'marker.downloadUrls >>>>>>>>>',
+        marker.downloadUrls,
+        marker.title,
+        marker.description,
+        marker.coordinates,
+        marker.type,
+        marker.color,
+        marker.phone,
+        //marker.images,
+        marker.downloadUrls,
+        marker.extraInfo,
+        marker.updatedAt,
+      );
       return {
         result: 'Marker added Successfully',
         message: 'Marker added Successfully',
@@ -84,6 +99,7 @@ export const addMarker = async marker => {
     throw {result: error, message: 'Marker adding failed'};
   }
 };
+
 
 export const getAllMarkersTitles = async () => {
   try {
